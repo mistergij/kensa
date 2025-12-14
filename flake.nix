@@ -55,7 +55,7 @@
             in
             {
               devshell = {
-                name = "dw-audit-bot";
+                name = "kensa-dev";
                 motd = "";
 
                 packages = [

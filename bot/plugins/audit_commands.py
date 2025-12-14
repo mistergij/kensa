@@ -187,11 +187,11 @@ class AuditDTDs:
                     logging.debug(e, exc_info=True)
                     continue
                 if to_audit == "train":
-                    query = f"INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained);"
+                    query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained);"""
                 elif to_audit == "transactions":
-                    query = f"INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description);"
+                    query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description);"""
                 else:
-                    query = f"INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name);"
+                    query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name);"""
 
                 message_id = message.id
                 message_timestamp = message.timestamp
@@ -246,13 +246,13 @@ class AuditDTDs:
         num_options = len(filtered_options_list)
         match num_options:
             case 0:
-                query = "SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"
+                query = """SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case 1:
-                query = "SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"
+                query = """SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case 2:
-                query = "SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"
+                query = """SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case 3:
-                query = "SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND filtered_all MATCH :search_3 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"
+                query = """SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND filtered_all MATCH :search_3 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case _:
                 raise ArgumentError(filtered_options_list)
 
@@ -262,9 +262,9 @@ class AuditDTDs:
             execute_options={
                 "parameters": {
                     "timestamp": aware_date.timestamp(),
-                    "search_1": filtered_options_list[0] if num_options > 0 else None,
-                    "search_2": filtered_options_list[1] if num_options > 1 else None,
-                    "search_3": filtered_options_list[2] if num_options > 2 else None,
+                    "search_1": f'"{filtered_options_list[0]}"' if num_options > 0 else None,
+                    "search_2": f'"{filtered_options_list[1]}"' if num_options > 1 else None,
+                    "search_3": f'"{filtered_options_list[2]}"' if num_options > 2 else None,
                 }
             },
         )
