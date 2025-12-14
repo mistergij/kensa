@@ -17,4 +17,7 @@ logs/
 *.sqlite-journal
 
 # Storage
-earliest_audit.txt
+resources/*
+
+# Autosaves
+*.*~
