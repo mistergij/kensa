@@ -112,6 +112,11 @@ CHANNEL_CHOICES = [
     ("transaction-log", "531011819095982081"),
 ]
 
+async def complete_channel(
+    ctx: crescent.AutocompleteContext, option: hikari.AutocompleteInteractionOption
+) -> Sequence[tuple[str, str]]:
+    return CHANNEL_CHOICES
+
 ERROR_LOG_PATH = os.path.normpath(os.path.join(os.getcwd(), "logs", f"{datetime.datetime.now()}.log"))
 
 CHANNEL_LIST = []

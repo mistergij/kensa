@@ -29,6 +29,7 @@ import sys
 
 from bot.constants import (
     CHANNEL_CHOICES,
+    complete_channel,
     complete_month,
     database,
     DISCORD_URL,
@@ -58,7 +59,7 @@ class GetMessage:
     channel_id = crescent.option(
         str,
         description="The ID of the message's channel.",
-        choices=CHANNEL_CHOICES,
+        autocomplete=complete_channel,
     )
     message_id = crescent.option(
         str,
@@ -78,7 +79,7 @@ class GetMessage:
             await ctx.respond(
                 f"**Title:** `{embed.title}`\n"
                 f"**Description:** ```{embed.description}```\n"
-                f"**Fields:** {''.join([f'\nField {i}: \n```{value.name}\n{value.value}```' for i, value in enumerate(embed.fields)])}\n"
+                f"**Fields:** {''.join([f'\nField {i}: \n```{value.name}\n{value.value} ```' for i, value in enumerate(embed.fields)])}\n"
                 f"**Footer:** `{embed.footer}`\n"
                 f"**Timestamp:** `{message.timestamp.timestamp()}`\n"
             )
