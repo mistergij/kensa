@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License along with Ken
 
 import datetime
 import os
+from collections.abc import Sequence
 
 import crescent
 import hikari
@@ -45,6 +46,8 @@ if DEV_IDS is None:
     raise ValueError("DEV_IDS environment variable is not set.")
 DEV_IDS = DEV_IDS.split(",")
 
+DISCORD_URL = "https://discord.com/channels/"
+
 MAIN_DATABASE_PATH = os.path.join(os.getcwd(), "resources", "database.sqlite")
 GUILD_DATABASE_PATH = os.path.join(os.getcwd(), "resources", "guild.sqlite")
 EARLIEST_AUDIT_PATH = os.path.join(os.getcwd(), "resources", "earliest_audit.txt")
@@ -67,6 +70,7 @@ GUILD_DTD_CHOICES = [
     ("works", "works"),
     ("healer", "healer"),
 ]
+
 MONTH_CHOICES = [
     ("January", "01"),
     ("February", "02"),
@@ -81,6 +85,11 @@ MONTH_CHOICES = [
     ("November", "11"),
     ("December", "12"),
 ]
+
+async def complete_month(
+    ctx: crescent.AutocompleteContext, option: hikari.AutocompleteInteractionOption
+) -> Sequence[tuple[str, str]]:
+    return MONTH_CHOICES
 
 DAY_DICTIONARY = {
     "01": 31,

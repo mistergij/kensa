@@ -16,7 +16,9 @@ You should have received a copy of the GNU General Public License along with Ken
 
 import io
 import logging
+from collections.abc import Sequence
 from datetime import datetime
+from urllib.parse import urljoin
 
 import aiosqlite
 import crescent
@@ -27,11 +29,12 @@ import sys
 
 from bot.constants import (
     CHANNEL_CHOICES,
+    complete_month,
     database,
+    DISCORD_URL,
     Plugin,
     GUILD_DTD_CHOICES,
     GUILD_ID,
-    MONTH_CHOICES,
 )
 from bot.errors import ArgumentError, ParsingError
 import bot.converters as cvt
@@ -108,7 +111,7 @@ class AuditDTDs:
         str,
         description="The year after which to audit.",
     ).convert(cvt.to_int)
-    month = crescent.option(str, description="The month after which to audit.", choices=MONTH_CHOICES)
+    month = crescent.option(str, description="The month after which to audit.", autocomplete=complete_month)
     day = crescent.option(int, description="The day after which to audit.").convert(cvt.convert_day)
     char_name = crescent.option(str, description="(Optional) The name of the character to audit.", default="")
     user_id = crescent.option(str, description="(Optional) The ID of the User to audit.", default="").convert(
@@ -117,7 +120,7 @@ class AuditDTDs:
     dtd_type = crescent.option(
         str, description="(Optional) The DTD type you wish to audit.", default="", choices=GUILD_DTD_CHOICES
     )
-
+ 
     async def update_tables(
         self, message_iterator: hikari.LazyIterator[hikari.Message], earliest_break: bool = False
     ) -> None:
@@ -133,10 +136,9 @@ class AuditDTDs:
 
                 embed = message.embeds[0]
                 description = embed.description
-                if (
-                    (description is None)
-                ):
+                if description is None:
                     logging.debug("Issue with description: %s", description)
+                    logging.debug
                     continue
 
                 for field in embed.fields:
@@ -147,10 +149,7 @@ class AuditDTDs:
                     if embed.title is None:
                         logging.debug("Title not set")
                         continue
-                    if (
-                        ("Coinpurse" in embed.title)
-                        or ("Coin Purse" in embed.title)
-                    ):
+                    if ("Coinpurse" in embed.title) or ("Coin Purse" in embed.title):
                         logging.debug("Issue with title: %s", embed.title)
                         continue
                     elif "High-Risk Work" in embed.title:
@@ -183,6 +182,10 @@ class AuditDTDs:
                     else:
                         logging.debug("Not searchable message: %s", footer)
                         continue
+                except TypeError:
+                    parts = [GUILD_ID, str(message.channel_id), str(message.id)]
+                    logging.debug(f'Message is missing information: {DISCORD_URL + "/".join(parts)}')
+                    continue
                 except Exception as e:
                     logging.debug(e, exc_info=True)
                     continue
