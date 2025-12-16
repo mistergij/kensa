@@ -66,3 +66,11 @@ def convert_single_quote_sql(text: str) -> str:
 def to_url(message: hikari.messages.Message) -> str:
     parts = [GUILD_ID, str(message.channel_id), str(message.id)]
     return DISCORD_URL + "/".join(parts)
+
+
+def convert_datetime_to_readable(time: datetime) -> str:
+    return time.strftime("%B %d, %Y at %I:%M %p")
+
+
+def convert_readable_to_epoch(time: str) -> float:
+    return datetime.strptime(time, "%B %d, %Y at %I:%M %p").replace(tzinfo=ZoneInfo("America/New_York"))

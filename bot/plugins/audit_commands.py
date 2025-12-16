@@ -245,7 +245,7 @@ class AuditDTDs:
                         query,
                         {
                             "message_id": message_id,
-                            "timestamp": message_timestamp.timestamp(),
+                            "timestamp": cvt.convert_datetime_to_readable(message_timestamp),
                             "dtd_remaining": dtd_remaining if is_dtd else -1,
                             "old_purse": 0 if old_purse is None else float(old_purse[1]),
                             "new_purse": 0 if new_purse is None else float(new_purse[1]),
@@ -326,10 +326,11 @@ class AuditDTDs:
             "SELECT message_timestamp FROM raw_all ORDER BY message_timestamp DESC LIMIT 1"
         )
         latest_sql_timestamp = await cursor.fetchone()
+        latest_sql_timestamp = cvt.convert_readable_to_epoch(latest_sql_timestamp[0])
         for channel_name, channel_id in CHANNEL_CHOICES:
             message_iterator: hikari.LazyIterator[hikari.Message] = plugin.app.rest.fetch_messages(
                 int(channel_id),
-                after=cvt.convert_epoch(float(latest_sql_timestamp[0])),
+                after=latest_sql_timestamp,
             )
 
             # Find messages sent after SQL Database was last updated
@@ -341,13 +342,6 @@ class AuditDTDs:
 
         sql_df = await self.filter_tables(aware_date)
 
-        time_column = sql_df.select(
-            pl.from_epoch("message_timestamp", time_unit="s")
-            .dt.convert_time_zone("America/New_York")
-            .cast(pl.String)
-            .replace("T", "")
-        ).to_series(0)
-        sql_df.replace_column(1, time_column)
         output_string = sql_df.write_csv()
         output_file = io.StringIO(output_string)
         await ctx.respond(

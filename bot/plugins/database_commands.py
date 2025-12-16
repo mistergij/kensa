@@ -147,7 +147,7 @@ class CreateDatabase:
                     user_name TEXT,
                     char_name TEXT,
                     xp_gained INTEGER,
-                    description: TEXT,
+                    description TEXT,
                     PRIMARY KEY(message_id DESC)
             );"""
             % f"'{self.table_name.replace("'", "''")}'"
