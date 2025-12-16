@@ -62,7 +62,7 @@ def convert_epoch(epoch: float) -> datetime:
 def convert_single_quote_sql(text: str) -> str:
     return str.replace(text, "'", "''").rstrip()
 
+
 def to_url(message: hikari.messages.Message) -> str:
     parts = [GUILD_ID, str(message.channel_id), str(message.id)]
-    return DISCORD_URL + '/'.join(parts
-)
+    return DISCORD_URL + "/".join(parts)

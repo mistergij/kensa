@@ -48,15 +48,15 @@ async def start_database(event: hikari.StartingEvent) -> None:
     await database.connection.executescript(
         """BEGIN;
                 CREATE VIEW IF NOT EXISTS train_no_xp AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM train;
-                DROP VIEW IF EXISTS dxp_no_xp;
-                CREATE VIEW IF NOT EXISTS dxp_no_xp AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM dxp;
+                DROP VIEW IF EXISTS dxp_plain;
+                CREATE VIEW IF NOT EXISTS dxp_plain AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM dxp;
                 CREATE VIEW IF NOT EXISTS transactions_no_desc AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM transactions;
                 DROP VIEW IF EXISTS raw_all;
-                CREATE VIEW raw_all AS SELECT * FROM guild UNION SELECT * FROM business UNION SELECT * FROM ptw UNION SELECT * FROM hrw UNION SELECT * FROM odd UNION SELECT * FROM train_no_xp UNION SELECT * FROM lifestyle UNION SELECT * FROM transactions_no_desc UNION SELECT * FROM dxp_no_xp;
+                CREATE VIEW raw_all AS SELECT * FROM guild UNION SELECT * FROM business UNION SELECT * FROM ptw UNION SELECT * FROM hrw UNION SELECT * FROM odd UNION SELECT * FROM train_no_xp UNION SELECT * FROM lifestyle UNION SELECT * FROM transactions_no_desc UNION SELECT * FROM dxp_plain;
                 DROP VIEW IF EXISTS raw_xp_appended;
                 CREATE VIEW raw_xp_appended AS SELECT raw_all.*, COALESCE(train.xp_gained, dxp.xp_gained, 0) as xp_gained from raw_all LEFT JOIN train USING (message_id) LEFT JOIN dxp USING (message_id);
                 DROP VIEW IF EXISTS raw_appended;
-                CREATE VIEW raw_appended AS SELECT raw_xp_appended.*, ifnull(transactions.description, 'N/A') as description from raw_xp_appended LEFT JOIN transactions USING (message_id);
+                CREATE VIEW raw_appended AS SELECT raw_xp_appended.*, COALESCE(transactions.description, dxp.description, 'N/A') as description from raw_xp_appended LEFT JOIN transactions USING (message_id) LEFT JOIN dxp USING (message_id);
                 CREATE VIRTUAL TABLE IF NOT EXISTS filtered_all USING FTS5(message_id, dtd_type, user_id, char_name, content=raw_appended, content_rowid=message_id);
                 INSERT INTO filtered_all(filtered_all) VALUES('rebuild');
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ai_guild AFTER INSERT ON guild BEGIN 
@@ -146,6 +146,8 @@ class CreateDatabase:
                     user_id INTEGER,
                     user_name TEXT,
                     char_name TEXT,
+                    xp_gained INTEGER,
+                    description: TEXT,
                     PRIMARY KEY(message_id DESC)
             );"""
             % f"'{self.table_name.replace("'", "''")}'"

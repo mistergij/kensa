@@ -199,14 +199,16 @@ class AuditDTDs:
                 except Exception as e:
                     logging.debug(e, exc_info=True)
                     continue
-                if (to_audit == "train") or (to_audit == "dxp"):
-                    query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained);"""
+                if to_audit == "train":
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained);"""
+                elif to_audit == "dxp":
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description);"""
                 elif to_audit == "rpxp":
-                    query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:rpxp_gained);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:rpxp_gained);"""
                 elif to_audit == "transactions":
-                    query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description);"""
                 else:
-                    query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name);"""
 
                 message_id = message.id
                 message_timestamp = message.timestamp
@@ -227,13 +229,16 @@ class AuditDTDs:
                     continue
 
                 xp_gained = None
+                output_desc = "N/A"
 
                 if to_audit == "train":
                     xp_gained = int(re2.search(r"XP Gained:?\*\*:? (\d+)", description)[1])
+                    output_desc = embed.description
                 elif to_audit == "dxp":
                     xp_old = re2.search(r"XP Change\n(\d+,*\d*)", description)[1].replace(",", "")
                     xp_new = re2.search(r"XP Change\n\d+,*\d* -> (\d+,*\d*)", description)[1].replace(",", "")
                     xp_gained = int(xp_new) - int(xp_old)
+                    output_desc = re2.search(r"Source\n(.+)", description)[1]
 
                 try:
                     await database.connection.execute(
@@ -251,7 +256,7 @@ class AuditDTDs:
                             "user_name": "Unknown" if user_id_and_name is None else user_id_and_name[2],
                             "char_name": char_name[1].strip(),
                             "xp_gained": xp_gained,
-                            "description": embed.description,
+                            "description": output_desc,
                         },
                     )
                     await database.connection.commit()
@@ -259,14 +264,12 @@ class AuditDTDs:
                     logging.debug(f"Value already exists: {cvt.to_url(message)}")
                     continue
                 except TypeError as e:
-                    print("ParsingError 1")
                     raise ParsingError(e, GUILD_ID, message.channel_id, message.id)
 
             # Handles if message does not have an Embed or if Embed doesn't have a Footer
             except (IndexError, AttributeError):
                 pass
             except TypeError as e:
-                print("parsingError 2")
                 raise ParsingError(e, GUILD_ID, message.channel_id, message.id)
 
     async def filter_tables(self, aware_date: datetime) -> pl.DataFrame:
