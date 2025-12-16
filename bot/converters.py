@@ -17,6 +17,10 @@ You should have received a copy of the GNU General Public License along with Ken
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import hikari
+
+from bot.constants import DISCORD_URL, GUILD_ID
+
 
 def to_int(value: str) -> str | int:
     if not value:
@@ -57,3 +61,8 @@ def convert_epoch(epoch: float) -> datetime:
 
 def convert_single_quote_sql(text: str) -> str:
     return str.replace(text, "'", "''").rstrip()
+
+def to_url(message: hikari.messages.Message) -> str:
+    parts = [GUILD_ID, str(message.channel_id), str(message.id)]
+    return DISCORD_URL + '/'.join(parts
+)

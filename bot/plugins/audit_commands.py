@@ -33,9 +33,9 @@ from bot.constants import (
     complete_month,
     database,
     DISCORD_URL,
-    Plugin,
     GUILD_DTD_CHOICES,
     GUILD_ID,
+    Plugin,
 )
 from bot.errors import ArgumentError, ParsingError
 import bot.converters as cvt
@@ -121,7 +121,7 @@ class AuditDTDs:
     dtd_type = crescent.option(
         str, description="(Optional) The DTD type you wish to audit.", default="", choices=GUILD_DTD_CHOICES
     )
- 
+
     async def update_tables(
         self, message_iterator: hikari.LazyIterator[hikari.Message], earliest_break: bool = False
     ) -> None:
@@ -137,27 +137,30 @@ class AuditDTDs:
 
                 embed = message.embeds[0]
                 description = embed.description
+
                 if description is None:
-                    logging.debug("Issue with description: %s", description)
-                    logging.debug
-                    continue
+                    description = ""
 
                 for field in embed.fields:
                     description += f"\n{field.name}\n{field.value}"
 
+                if description == "":
+                    logging.debug(f"Issue with description: {cvt.to_url(message)}")
+                    continue
+
                 footer = embed.footer.text
                 try:
                     if embed.title is None:
-                        logging.debug("Title not set")
+                        logging.debug(f"Title not set: {cvt.to_url(message)}")
                         continue
                     if ("Coinpurse" in embed.title) or ("Coin Purse" in embed.title):
-                        logging.debug("Issue with title: %s", embed.title)
+                        logging.debug(f"Issue with title: {cvt.to_url(message)}")
                         continue
                     elif "High-Risk Work" in embed.title:
                         to_audit = "hrw"
                         dtd_type = "N/A"
                     elif footer is None:
-                        logging.debug("Footer not set")
+                        logging.debug(f"Footer not set: {cvt.to_url(message)}")
                         continue
                     elif "!guild" in footer:
                         to_audit = "guild"
@@ -180,18 +183,26 @@ class AuditDTDs:
                     elif "transaction" in footer:
                         to_audit = "transactions"
                         dtd_type = "N/A"
+                    elif "dxp" in footer:
+                        to_audit = "dxp"
+                        dtd_type = "N/A"
+                    # elif "rpxp" in footer:
+                    #     to_audit = "rpxp"
+                    #     dtd_type = "N/A"
                     else:
-                        logging.debug("Not searchable message: %s", footer)
+                        logging.debug(f"Not searchable message: {cvt.to_url(message)}")
                         continue
                 except TypeError:
                     parts = [GUILD_ID, str(message.channel_id), str(message.id)]
-                    logging.debug(f'Message is missing information: {DISCORD_URL + "/".join(parts)}')
+                    logging.debug(f"Message is missing information: {cvt.to_url(message)}")
                     continue
                 except Exception as e:
                     logging.debug(e, exc_info=True)
                     continue
-                if to_audit == "train":
+                if (to_audit == "train") or (to_audit == "dxp"):
                     query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained);"""
+                elif to_audit == "rpxp":
+                    query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:rpxp_gained);"""
                 elif to_audit == "transactions":
                     query = f"""INSERT INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description);"""
                 else:
@@ -200,6 +211,7 @@ class AuditDTDs:
                 message_id = message.id
                 message_timestamp = message.timestamp
                 dtd_remaining = description.count("◉")
+                is_dtd = True if dtd_remaining > 0 or description.count("〇") > 0 else False
                 old_purse = re2.search(r"(\d+\.\d+)gp -> \d+\.\d+gp \(", description)
                 new_purse = re2.search(r"-> (\d+\.\d+)", description)
                 lifestyle = re2.search(r"Lifestyle:?\*\*:? ([^\n\r]+)", description)
@@ -209,8 +221,19 @@ class AuditDTDs:
                 if char_name is None:
                     char_name = re2.match(r"(.+)makes a transaction!", embed.title)
                 if char_name is None:
+                    char_name = re2.match(r"(.+)gained \d,*\d*xp!", embed.title)
+                if char_name is None:
+                    logging.debug(f"Character name not found: {cvt.to_url(message)}")
                     continue
-                xp_gained = re2.search(r"XP Gained:?\*\*:? (\d+)", description)
+
+                xp_gained = None
+
+                if to_audit == "train":
+                    xp_gained = int(re2.search(r"XP Gained:?\*\*:? (\d+)", description)[1])
+                elif to_audit == "dxp":
+                    xp_old = re2.search(r"XP Change\n(\d+,*\d*)", description)[1].replace(",", "")
+                    xp_new = re2.search(r"XP Change\n\d+,*\d* -> (\d+,*\d*)", description)[1].replace(",", "")
+                    xp_gained = int(xp_new) - int(xp_old)
 
                 try:
                     await database.connection.execute(
@@ -218,7 +241,7 @@ class AuditDTDs:
                         {
                             "message_id": message_id,
                             "timestamp": message_timestamp.timestamp(),
-                            "dtd_remaining": dtd_remaining,
+                            "dtd_remaining": dtd_remaining if is_dtd else -1,
                             "old_purse": 0 if old_purse is None else float(old_purse[1]),
                             "new_purse": 0 if new_purse is None else float(new_purse[1]),
                             "lifestyle": "Unknown" if lifestyle is None else lifestyle[1],
@@ -227,12 +250,13 @@ class AuditDTDs:
                             "user_id": 0 if user_id_and_name is None else user_id_and_name[1],
                             "user_name": "Unknown" if user_id_and_name is None else user_id_and_name[2],
                             "char_name": char_name[1].strip(),
-                            "xp_gained": None if xp_gained is None else int(xp_gained[1]),
+                            "xp_gained": xp_gained,
                             "description": embed.description,
                         },
                     )
                     await database.connection.commit()
                 except aiosqlite.IntegrityError:
+                    logging.debug(f"Value already exists: {cvt.to_url(message)}")
                     continue
                 except TypeError as e:
                     print("ParsingError 1")

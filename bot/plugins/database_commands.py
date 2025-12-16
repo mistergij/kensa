@@ -48,13 +48,15 @@ async def start_database(event: hikari.StartingEvent) -> None:
     await database.connection.executescript(
         """BEGIN;
                 CREATE VIEW IF NOT EXISTS train_no_xp AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM train;
+                DROP VIEW IF EXISTS dxp_no_xp;
+                CREATE VIEW IF NOT EXISTS dxp_no_xp AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM dxp;
                 CREATE VIEW IF NOT EXISTS transactions_no_desc AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM transactions;
                 DROP VIEW IF EXISTS raw_all;
-                CREATE VIEW raw_all AS SELECT * FROM guild UNION SELECT * FROM business UNION SELECT * FROM ptw UNION SELECT * FROM hrw UNION SELECT * FROM odd UNION SELECT * FROM train_no_xp UNION SELECT * FROM lifestyle UNION SELECT * FROM transactions_no_desc;
+                CREATE VIEW raw_all AS SELECT * FROM guild UNION SELECT * FROM business UNION SELECT * FROM ptw UNION SELECT * FROM hrw UNION SELECT * FROM odd UNION SELECT * FROM train_no_xp UNION SELECT * FROM lifestyle UNION SELECT * FROM transactions_no_desc UNION SELECT * FROM dxp_no_xp;
                 DROP VIEW IF EXISTS raw_xp_appended;
-                CREATE VIEW raw_xp_appended AS SELECT raw_all.*, ifnull(train.xp_gained, 0) as xp_gained from raw_all left join train USING (message_id);
+                CREATE VIEW raw_xp_appended AS SELECT raw_all.*, COALESCE(train.xp_gained, dxp.xp_gained, 0) as xp_gained from raw_all LEFT JOIN train USING (message_id) LEFT JOIN dxp USING (message_id);
                 DROP VIEW IF EXISTS raw_appended;
-                CREATE VIEW raw_appended AS SELECT raw_xp_appended.*, ifnull(transactions.description, 'N/A') as transaction_description from raw_xp_appended left join transactions USING (message_id);
+                CREATE VIEW raw_appended AS SELECT raw_xp_appended.*, ifnull(transactions.description, 'N/A') as description from raw_xp_appended LEFT JOIN transactions USING (message_id);
                 CREATE VIRTUAL TABLE IF NOT EXISTS filtered_all USING FTS5(message_id, dtd_type, user_id, char_name, content=raw_appended, content_rowid=message_id);
                 INSERT INTO filtered_all(filtered_all) VALUES('rebuild');
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ai_guild AFTER INSERT ON guild BEGIN 
@@ -78,6 +80,9 @@ async def start_database(event: hikari.StartingEvent) -> None:
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ai_lifestyle AFTER INSERT ON lifestyle BEGIN 
                     INSERT INTO filtered_all(rowid, dtd_type, user_id, char_name) VALUES (new.message_id, new.dtd_type, new.user_id, new.char_name);
                 END;
+                CREATE TRIGGER IF NOT EXISTS filtered_all_ai_dxp AFTER INSERT ON dxp BEGIN 
+                    INSERT INTO filtered_all(rowid, dtd_type, user_id, char_name) VALUES (new.message_id, new.dtd_type, new.user_id, new.char_name);
+                END;
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ad_guild AFTER DELETE ON guild BEGIN 
                     INSERT INTO filtered_all(filtered_all, rowid, dtd_type, user_id, char_name) VALUES ('delete', old.message_id, old.dtd_type, old.user_id, old.char_name);
                 END;
@@ -98,6 +103,9 @@ async def start_database(event: hikari.StartingEvent) -> None:
                 END;
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ad_lifestyle AFTER DELETE ON lifestyle BEGIN 
                     INSERT INTO filtered_all(filtered_all, rowid, dtd_type, user_id, char_name) VALUES ('delete', old.message_id, old.dtd_type, old.user_id, old.char_name);
+                END;
+                CREATE TRIGGER IF NOT EXISTS filtered_all_ad_dxp AFTER DELETE ON dxp BEGIN
+                INSERT INTO filtered_all(filtered_all, rowid, dtd_type, user_id, char_name) VALUES ('delete', old.message_id, old.dtd_type, old.user_id, old.char_name);
                 END;
             COMMIT;"""
     )
@@ -129,7 +137,7 @@ class CreateDatabase:
             """CREATE TABLE IF NOT EXISTS %s(
                     message_id INTEGER,
                     message_timestamp REAL,
-                    remaining_dtd INTEGER,
+                    remaining_dtd TEXT,
                     old_purse REAL,
                     new_purse REAL,
                     lifestyle TEXT,

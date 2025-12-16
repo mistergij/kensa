@@ -86,10 +86,12 @@ MONTH_CHOICES = [
     ("December", "12"),
 ]
 
+
 async def complete_month(
     ctx: crescent.AutocompleteContext, option: hikari.AutocompleteInteractionOption
 ) -> Sequence[tuple[str, str]]:
     return MONTH_CHOICES
+
 
 DAY_DICTIONARY = {
     "01": 31,
@@ -110,12 +112,15 @@ CHANNEL_CHOICES = [
     ("dtd-automated-log", "579777361117970465"),
     ("lifestyle-log", "586471153141284866"),
     ("transaction-log", "531011819095982081"),
+    ("xp-tracker", "531014104098537481"),
 ]
+
 
 async def complete_channel(
     ctx: crescent.AutocompleteContext, option: hikari.AutocompleteInteractionOption
 ) -> Sequence[tuple[str, str]]:
     return CHANNEL_CHOICES
+
 
 ERROR_LOG_PATH = os.path.normpath(os.path.join(os.getcwd(), "logs", f"{datetime.datetime.now()}.log"))
 
