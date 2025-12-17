@@ -47,10 +47,12 @@ async def start_database(event: hikari.StartingEvent) -> None:
             pass
     await database.connection.executescript(
         """BEGIN;
-                CREATE VIEW IF NOT EXISTS train_no_xp AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM train;
+                DROP VIEW IF EXISTS train_no_xp;
+                CREATE VIEW train_no_xp AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name, message_link FROM train;
                 DROP VIEW IF EXISTS dxp_plain;
-                CREATE VIEW IF NOT EXISTS dxp_plain AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM dxp;
-                CREATE VIEW IF NOT EXISTS transactions_no_desc AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name FROM transactions;
+                CREATE VIEW dxp_plain AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name, message_link FROM dxp;
+                DROP VIEW IF EXISTS transactions_no_desc;
+                CREATE VIEW transactions_no_desc AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name, message_link FROM transactions;
                 DROP VIEW IF EXISTS raw_all;
                 CREATE VIEW raw_all AS SELECT * FROM guild UNION SELECT * FROM business UNION SELECT * FROM ptw UNION SELECT * FROM hrw UNION SELECT * FROM odd UNION SELECT * FROM train_no_xp UNION SELECT * FROM lifestyle UNION SELECT * FROM transactions_no_desc UNION SELECT * FROM dxp_plain;
                 DROP VIEW IF EXISTS raw_xp_appended;
@@ -147,7 +149,7 @@ class CreateDatabase:
                     user_name TEXT,
                     char_name TEXT,
                     xp_gained INTEGER,
-                    description TEXT,
+                    description: TEXT,
                     PRIMARY KEY(message_id DESC)
             );"""
             % f"'{self.table_name.replace("'", "''")}'"

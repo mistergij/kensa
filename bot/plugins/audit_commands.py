@@ -16,23 +16,19 @@ You should have received a copy of the GNU General Public License along with Ken
 
 import io
 import logging
-from collections.abc import Sequence
 from datetime import datetime
-from urllib.parse import urljoin
 
 import aiosqlite
 import crescent
 import hikari
 import polars as pl
 import re2
-import sys
 
 from bot.constants import (
     CHANNEL_CHOICES,
     complete_channel,
     complete_month,
     database,
-    DISCORD_URL,
     GUILD_DTD_CHOICES,
     GUILD_ID,
     Plugin,
@@ -97,7 +93,7 @@ class AuditDTDs:
         self.schema = {
             "message_id": pl.UInt64,
             "message_timestamp": pl.Float64,
-            "remaining_dtd": pl.UInt8,
+            "remaining_dtd": pl.String,
             "old_purse": pl.Float32,
             "new_purse": pl.Float32,
             "lifestyle": pl.String,
@@ -106,6 +102,9 @@ class AuditDTDs:
             "user_id": pl.UInt64,
             "user_name": pl.String,
             "char_name": pl.String,
+            "xp_gained": pl.Int32,
+            "description": pl.String,
+            "message_link": pl.String,
         }
 
     year = crescent.option(
@@ -200,15 +199,15 @@ class AuditDTDs:
                     logging.debug(e, exc_info=True)
                     continue
                 if to_audit == "train":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:message_link);"""
                 elif to_audit == "dxp":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description,:message_link);"""
                 elif to_audit == "rpxp":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:rpxp_gained);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:rpxp_gained,:message_link);"""
                 elif to_audit == "transactions":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description,:message_link);"""
                 else:
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:message_link);"""
 
                 message_id = message.id
                 message_timestamp = message.timestamp
@@ -230,6 +229,7 @@ class AuditDTDs:
 
                 xp_gained = None
                 output_desc = "N/A"
+                link = cvt.to_url(message)
 
                 if to_audit == "train":
                     xp_gained = int(re2.search(r"XP Gained:?\*\*:? (\d+)", description)[1])
@@ -245,7 +245,7 @@ class AuditDTDs:
                         query,
                         {
                             "message_id": message_id,
-                            "timestamp": cvt.convert_datetime_to_readable(message_timestamp),
+                            "timestamp": message_timestamp.timestamp(),
                             "dtd_remaining": dtd_remaining if is_dtd else -1,
                             "old_purse": 0 if old_purse is None else float(old_purse[1]),
                             "new_purse": 0 if new_purse is None else float(new_purse[1]),
@@ -257,6 +257,7 @@ class AuditDTDs:
                             "char_name": char_name[1].strip(),
                             "xp_gained": xp_gained,
                             "description": output_desc,
+                            "message_link": link,
                         },
                     )
                     await database.connection.commit()
@@ -267,7 +268,9 @@ class AuditDTDs:
                     raise ParsingError(e, GUILD_ID, message.channel_id, message.id)
 
             # Handles if message does not have an Embed or if Embed doesn't have a Footer
-            except (IndexError, AttributeError):
+            except (IndexError, AttributeError) as e:
+                logging.debug(e, exc_info=True)
+                logging.debug(cvt.to_url(message))
                 pass
             except TypeError as e:
                 raise ParsingError(e, GUILD_ID, message.channel_id, message.id)
@@ -326,11 +329,10 @@ class AuditDTDs:
             "SELECT message_timestamp FROM raw_all ORDER BY message_timestamp DESC LIMIT 1"
         )
         latest_sql_timestamp = await cursor.fetchone()
-        latest_sql_timestamp = cvt.convert_readable_to_epoch(latest_sql_timestamp[0])
         for channel_name, channel_id in CHANNEL_CHOICES:
             message_iterator: hikari.LazyIterator[hikari.Message] = plugin.app.rest.fetch_messages(
                 int(channel_id),
-                after=latest_sql_timestamp,
+                after=cvt.convert_epoch(float(latest_sql_timestamp[0])),
             )
 
             # Find messages sent after SQL Database was last updated
@@ -342,6 +344,13 @@ class AuditDTDs:
 
         sql_df = await self.filter_tables(aware_date)
 
+        time_column = sql_df.select(
+            pl.from_epoch("message_timestamp", time_unit="s")
+            .dt.convert_time_zone("America/New_York")
+            .dt.strftime("%B %d, %Y at %I:%M:%S %p %Z")
+            .cast(pl.String)
+        ).to_series(0)
+        sql_df.replace_column(1, time_column)
         output_string = sql_df.write_csv()
         output_file = io.StringIO(output_string)
         await ctx.respond(
