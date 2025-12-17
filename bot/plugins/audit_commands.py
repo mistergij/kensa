@@ -93,16 +93,17 @@ class AuditDTDs:
         self.schema = {
             "message_id": pl.UInt64,
             "message_timestamp": pl.Float64,
-            "remaining_dtd": pl.String,
-            "old_purse": pl.Float32,
-            "new_purse": pl.Float32,
-            "lifestyle": pl.String,
-            "injuries": pl.String,
             "dtd_type": pl.String,
             "user_id": pl.UInt64,
             "user_name": pl.String,
             "char_name": pl.String,
+            "lifestyle": pl.String,
+            "remaining_dtd": pl.String,
+            "old_purse": pl.Float32,
+            "new_purse": pl.Float32,
+            "purse_delta": pl.Float32,
             "xp_gained": pl.Int32,
+            "injuries": pl.String,
             "description": pl.String,
             "message_link": pl.String,
         }
@@ -188,15 +189,15 @@ class AuditDTDs:
                     logging.debug(e, exc_info=True)
                     continue
                 if to_audit == "train":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:message_link,:description);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:message_link,:description,:purse_delta);"""
                 elif to_audit == "dxp":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description,:message_link);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description,:message_link,:purse_delta);"""
                 elif to_audit == "rpxp":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:rpxp_gained,:message_link);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:rpxp_gained,:message_link,:purse_delta);"""
                 elif to_audit == "transactions":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description,:message_link);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description,:message_link,:purse_delta);"""
                 else:
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:message_link,:description);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:message_link,:description,:purse_delta);"""
 
                 message_id = message.id
                 message_timestamp = message.timestamp
@@ -266,6 +267,7 @@ class AuditDTDs:
                             "xp_gained": xp_gained,
                             "description": output_desc,
                             "message_link": link,
+                            "purse_delta": 0 if ((old_purse is None) or (new_purse is None)) else (float(new_purse[1]) - float(old_purse[1])),
                         },
                     )
                     await database.connection.commit()
@@ -288,13 +290,71 @@ class AuditDTDs:
         num_options = len(filtered_options_list)
         match num_options:
             case 0:
-                query = """SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
+                query = """SELECT raw_appended.message_id,
+                                  raw_appended.message_timestamp,
+                                  raw_appended.dtd_type,
+                                  raw_appended.user_id,
+                                  raw_appended.user_name,
+                                  raw_appended.char_name,
+                                  raw_appended.lifestyle,
+                                  raw_appended.remaining_dtd,
+                                  raw_appended.old_purse,
+                                  raw_appended.new_purse,
+                                  raw_appended.purse_delta,
+                                  raw_appended.xp_gained,
+                                  raw_appended.injuries,
+                                  raw_appended.description,
+                                  raw_appended.message_link
+                           from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case 1:
-                query = """SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
+                query = """SELECT raw_appended.message_id,
+                                  raw_appended.message_timestamp,
+                                  raw_appended.dtd_type,
+                                  raw_appended.user_id,
+                                  raw_appended.user_name,
+                                  raw_appended.char_name,
+                                  raw_appended.lifestyle,
+                                  raw_appended.remaining_dtd,
+                                  raw_appended.old_purse,
+                                  raw_appended.new_purse,
+                                  raw_appended.purse_delta,
+                                  raw_appended.xp_gained,
+                                  raw_appended.injuries,
+                                  raw_appended.description,
+                                  raw_appended.message_link 
+                           from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case 2:
-                query = """SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
+                query = """SELECT raw_appended.message_id,
+                                  raw_appended.message_timestamp,
+                                  raw_appended.dtd_type,
+                                  raw_appended.user_id,
+                                  raw_appended.user_name,
+                                  raw_appended.char_name,
+                                  raw_appended.lifestyle,
+                                  raw_appended.remaining_dtd,
+                                  raw_appended.old_purse,
+                                  raw_appended.xp_gained,
+                                  raw_appended.injuries,
+                                  raw_appended.description,
+                                  raw_appended.message_link 
+                           from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case 3:
-                query = """SELECT raw_appended.* from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND filtered_all MATCH :search_3 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
+                query = """SELECT raw_appended.message_id,
+                                  raw_appended.message_timestamp,
+                                  raw_appended.dtd_type,
+                                  raw_appended.user_id,
+                                  raw_appended.user_name,
+                                  raw_appended.char_name,
+                                  raw_appended.lifestyle,
+                                  raw_appended.remaining_dtd,
+                                  raw_appended.old_purse,
+                                  raw_appended.new_purse,
+                                  raw_appended.purse_delta,
+                                  raw_appended.xp_gained,
+                                  raw_appended.injuries,
+                                  raw_appended.description,
+                                  raw_appended.message_link 
+                           from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND filtered_all MATCH :search_3 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case _:
                 raise ArgumentError(filtered_options_list)
 
@@ -309,6 +369,7 @@ class AuditDTDs:
                     "search_3": f'"{filtered_options_list[2]}"' if num_options > 2 else None,
                 }
             },
+            schema_overrides=self.schema,
         )
 
     async def callback(self, ctx: crescent.Context) -> None:
@@ -358,6 +419,7 @@ class AuditDTDs:
             .dt.strftime("%B %d, %Y at %I:%M:%S %p %Z")
             .cast(pl.String)
         ).to_series(0)
+        sql_df = sql_df.cast({"old_purse": pl.Decimal(scale=2), "new_purse": pl.Decimal(scale=2), "purse_delta": pl.Decimal(scale=2)})
         sql_df.replace_column(1, time_column)
         output_string = sql_df.write_csv()
         output_file = io.StringIO(output_string)

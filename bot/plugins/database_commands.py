@@ -47,12 +47,15 @@ async def start_database(event: hikari.StartingEvent) -> None:
             pass
     await database.connection.executescript(
         """BEGIN;
-                DROP VIEW IF EXISTS train_plain;
-                CREATE VIEW train_plain AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name, message_link, description FROM train;
-                DROP VIEW IF EXISTS dxp_plain;
-                CREATE VIEW dxp_plain AS SELECT message_id, message_timestamp, remaining_dtd, old_purse, new_purse, lifestyle, injuries, dtd_type, user_id, user_name, char_name, message_link, description FROM dxp;
                 DROP VIEW IF EXISTS raw_all;
-                CREATE VIEW raw_all AS SELECT * FROM guild UNION SELECT * FROM business UNION SELECT * FROM ptw UNION SELECT * FROM hrw UNION SELECT * FROM odd UNION SELECT * FROM lifestyle UNION SELECT * FROM train_plain UNION SELECT * FROM dxp_plain;
+                CREATE VIEW raw_all AS SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM guild UNION 
+                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM business UNION
+                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM ptw UNION
+                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM hrw UNION
+                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM odd UNION 
+                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM lifestyle UNION
+                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM train UNION
+                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM dxp;
                 DROP VIEW IF EXISTS raw_appended;
                 CREATE VIEW raw_appended AS SELECT raw_all.*, COALESCE(train.xp_gained, dxp.xp_gained, 0) as xp_gained from raw_all LEFT JOIN train USING (message_id) LEFT JOIN dxp USING (message_id);
                 CREATE VIRTUAL TABLE IF NOT EXISTS filtered_all USING FTS5(message_id, dtd_type, user_id, char_name, content=raw_appended, content_rowid=message_id);
