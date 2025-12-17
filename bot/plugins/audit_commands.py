@@ -199,7 +199,7 @@ class AuditDTDs:
                     logging.debug(e, exc_info=True)
                     continue
                 if to_audit == "train":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:message_link);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:message_link,:description);"""
                 elif to_audit == "dxp":
                     query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description,:message_link);"""
                 elif to_audit == "rpxp":
@@ -207,7 +207,7 @@ class AuditDTDs:
                 elif to_audit == "transactions":
                     query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description,:message_link);"""
                 else:
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:message_link);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:message_link,:description);"""
 
                 message_id = message.id
                 message_timestamp = message.timestamp
@@ -231,14 +231,33 @@ class AuditDTDs:
                 output_desc = "N/A"
                 link = cvt.to_url(message)
 
-                if to_audit == "train":
-                    xp_gained = int(re2.search(r"XP Gained:?\*\*:? (\d+)", description)[1])
-                    output_desc = embed.description
-                elif to_audit == "dxp":
-                    xp_old = re2.search(r"XP Change\n(\d+,*\d*)", description)[1].replace(",", "")
-                    xp_new = re2.search(r"XP Change\n\d+,*\d* -> (\d+,*\d*)", description)[1].replace(",", "")
-                    xp_gained = int(xp_new) - int(xp_old)
-                    output_desc = re2.search(r"Source\n(.+)", description)[1]
+                match to_audit:
+                    case "train":
+                        xp_gained = int(re2.search(r"XP Gained:?\*\*:? (\d+)", description)[1])
+                        try:
+                            output_desc = re2.search(r"Note:?\*\*:? ([^\n\r]+)", description)[1]
+                        except TypeError:
+                            pass
+                    case "dxp":
+                        xp_old = re2.search(r"XP Change\n(\d+,*\d*)", description)[1].replace(",", "")
+                        xp_new = re2.search(r"XP Change\n\d+,*\d* -> (\d+,*\d*)", description)[1].replace(",", "")
+                        xp_gained = int(xp_new) - int(xp_old)
+                        output_desc = re2.search(r"Source\n(.+)", description)[1]
+                    case "guild":
+                        output_desc = re2.match(r"\w+", footer[7:])[0].replace("assasinate", "assassinate")
+                    case "business":
+                        output_desc = re2.search(r"Business Category:?\*\*:? ([^\n\r]+)", description)[1]
+                    case "ptw":
+                        output_desc = re2.search(r"Employer:?\*\*:? ([^\n\r]+)", description)[1]
+                    case "odd":
+                        output_desc = re2.match(r"\w+", footer[5:])[0]
+                    case "lifestyle":
+                        try:
+                            output_desc = re2.search(r"Notes:?\*\*:?\n([^\n\r]+)", description)[1]
+                        except TypeError:
+                            pass
+                    case "transactions":
+                        output_desc = embed.description
 
                 try:
                     await database.connection.execute(
