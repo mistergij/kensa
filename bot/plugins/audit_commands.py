@@ -157,42 +157,31 @@ class AuditDTDs:
                         continue
                     elif "High-Risk Work" in embed.title:
                         to_audit = "hrw"
-                        dtd_type = "N/A"
                     elif footer is None:
                         logging.debug(f"Footer not set: {cvt.to_url(message)}")
                         continue
                     elif "!guild" in footer:
                         to_audit = "guild"
-                        dtd_type = re2.match(r"\w+", footer[7:])[0].replace("assasinate", "assassinate")
                     elif "!business" in footer:
                         to_audit = "business"
-                        dtd_type = re2.search(r"Business Category:?\*\*:? ([^\n\r]+)", description)[1]
                     elif "!ptw" in footer:
                         to_audit = "ptw"
-                        dtd_type = "Part-Time Work"
                     elif "!odd" in footer:
                         to_audit = "odd"
-                        dtd_type = re2.match(r"\w+", footer[5:])[0]
                     elif "train" in footer:
                         to_audit = "train"
-                        dtd_type = "Combat Training"
                     elif "lifestyle" in footer:
                         to_audit = "lifestyle"
-                        dtd_type = "N/A"
                     elif "transaction" in footer:
                         to_audit = "transactions"
-                        dtd_type = "N/A"
                     elif "dxp" in footer:
                         to_audit = "dxp"
-                        dtd_type = "N/A"
                     # elif "rpxp" in footer:
                     #     to_audit = "rpxp"
-                    #     dtd_type = "N/A"
                     else:
                         logging.debug(f"Not searchable message: {cvt.to_url(message)}")
                         continue
                 except TypeError:
-                    parts = [GUILD_ID, str(message.channel_id), str(message.id)]
                     logging.debug(f"Message is missing information: {cvt.to_url(message)}")
                     continue
                 except Exception as e:
@@ -270,7 +259,7 @@ class AuditDTDs:
                             "new_purse": 0 if new_purse is None else float(new_purse[1]),
                             "lifestyle": "Unknown" if lifestyle is None else lifestyle[1],
                             "injuries": "None" if injuries is None else injuries[1],
-                            "dtd_type": dtd_type,
+                            "dtd_type": to_audit,
                             "user_id": 0 if user_id_and_name is None else user_id_and_name[1],
                             "user_name": "Unknown" if user_id_and_name is None else user_id_and_name[2],
                             "char_name": char_name[1].strip(),
