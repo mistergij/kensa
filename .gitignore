@@ -21,3 +21,9 @@ resources/*
 
 # Autosaves
 *.*~
+
+# Helper shell script
+nix-python.sh
+
+# Editor files
+.idea/*
