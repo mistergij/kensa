@@ -127,7 +127,10 @@ class AuditDTDs:
     async def update_tables(
         self, message_iterator: hikari.LazyIterator[hikari.Message], earliest_break: bool = False
     ) -> None:
+        message: hikari.Message
         async for message in message_iterator:
+            link = message.make_link(GUILD_ID)
+
             try:
                 if (
                     (database.earliest_audit is not None)
@@ -147,21 +150,21 @@ class AuditDTDs:
                     description += f"\n{field.name}\n{field.value}"
 
                 if description == "":
-                    logging.debug(f"Issue with description: {cvt.to_url(message)}")
+                    logging.debug(f"Issue with description: {link}")
                     continue
 
                 footer = embed.footer.text
                 try:
                     if embed.title is None:
-                        logging.debug(f"Title not set: {cvt.to_url(message)}")
+                        logging.debug(f"Title not set: {link}")
                         continue
                     if ("Coinpurse" in embed.title) or ("Coin Purse" in embed.title):
-                        logging.debug(f"Issue with title: {cvt.to_url(message)}")
+                        logging.debug(f"Issue with title: {link}")
                         continue
                     elif "High-Risk Work" in embed.title:
                         to_audit = "hrw"
                     elif footer is None:
-                        logging.debug(f"Footer not set: {cvt.to_url(message)}")
+                        logging.debug(f"Footer not set: {link}")
                         continue
                     elif "!guild" in footer:
                         to_audit = "guild"
@@ -182,13 +185,14 @@ class AuditDTDs:
                     # elif "rpxp" in footer:
                     #     to_audit = "rpxp"
                     else:
-                        logging.debug(f"Not searchable message: {cvt.to_url(message)}")
+                        logging.debug(f"Not searchable message: {link}")
                         continue
                 except TypeError:
-                    logging.debug(f"Message is missing information: {cvt.to_url(message)}")
+                    logging.debug(f"Message is missing information: {link}")
                     continue
                 except Exception as e:
                     logging.debug(e, exc_info=True)
+                    logging.debug(link)
                     continue
                 if to_audit == "train":
                     query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:message_link,:description,:purse_delta,:old_xp,:new_xp);"""
@@ -216,14 +220,13 @@ class AuditDTDs:
                 if char_name is None:
                     char_name = re2.match(r"(.+)gained \d,*\d*xp!", embed.title)
                 if char_name is None:
-                    logging.debug(f"Character name not found: {cvt.to_url(message)}")
+                    logging.debug(f"Character name not found: {link}")
                     continue
 
                 xp_gained = None
                 old_xp = None
                 new_xp = None
                 output_desc = "N/A"
-                link = cvt.to_url(message)
 
                 match to_audit:
                     case "train":
@@ -278,7 +281,7 @@ class AuditDTDs:
                     )
                     await database.connection.commit()
                 except aiosqlite.IntegrityError:
-                    logging.debug(f"Value already exists: {cvt.to_url(message)}")
+                    logging.debug(f"Value already exists: {link}")
                     continue
                 except TypeError as e:
                     raise ParsingError(e, GUILD_ID, message.channel_id, message.id)
@@ -286,7 +289,7 @@ class AuditDTDs:
             # Handles if message does not have an Embed or if Embed doesn't have a Footer
             except (IndexError, AttributeError) as e:
                 logging.debug(e, exc_info=True)
-                logging.debug(cvt.to_url(message))
+                logging.debug(link)
                 pass
             except TypeError as e:
                 raise ParsingError(e, GUILD_ID, message.channel_id, message.id)
