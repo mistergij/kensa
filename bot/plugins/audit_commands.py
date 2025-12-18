@@ -75,7 +75,7 @@ class GetMessage:
             await ctx.respond(
                 f"**Title:** `{embed.title}`\n"
                 f"**Description:** ```{embed.description}```\n"
-                f"**Fields:** {''.join([f'\nField {i}: \n```{value.name}\n{value.value} ```' for i, value in enumerate(embed.fields)])}\n"
+                f"**Fields:** {''.join([f'\nField {i}: \n```\n{value.name}\n{value.value} ```' for i, value in enumerate(embed.fields)])}\n"
                 f"**Footer:** `{embed.footer}`\n"
                 f"**Timestamp:** `{message.timestamp.timestamp()}`\n"
             )
@@ -105,6 +105,12 @@ class AuditDTDs:
             "old_xp": pl.Int32,
             "new_xp": pl.Int32,
             "xp_gained": pl.Int32,
+            "old_rpxp": pl.Int32,
+            "new_rpxp": pl.Int32,
+            "rpxp_delta": pl.Int32,
+            "old_rpxp_cache": pl.Int32,
+            "new_rpxp_cache": pl.Int32,
+            "rpxp_cache_delta": pl.Int32,
             "injuries": pl.String,
             "description": pl.String,
             "message_link": pl.String,
@@ -184,8 +190,8 @@ class AuditDTDs:
                         to_audit = "transactions"
                     elif "dxp" in footer:
                         to_audit = "dxp"
-                    # elif "rpxp" in footer:
-                    #     to_audit = "rpxp"
+                    elif "rpxp" in footer:
+                        to_audit = "rpxp"
                     else:
                         logging.debug(f"Not searchable message: {link}")
                         continue
@@ -199,9 +205,9 @@ class AuditDTDs:
                 if to_audit == "train":
                     query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:message_link,:description,:purse_delta,:old_xp,:new_xp,:channel_name);"""
                 elif to_audit == "dxp":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description,:message_link,:purse_delta,:old_xp,:new_xp,:channel_name);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description,:message_link,:purse_delta,:old_xp,:new_xp,:channel_name,:old_rpxp,:new_rpxp,:rpxp_delta);"""
                 elif to_audit == "rpxp":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:rpxp_gained,:message_link,:purse_delta,:channel_name);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description,:message_link,:purse_delta,:channel_name,:old_rpxp,:new_rpxp,:rpxp_delta,:old_rpxp_cache,:new_rpxp_cache,:rpxp_cache_delta);"""
                 elif to_audit == "transactions":
                     query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:description,:message_link,:purse_delta,:channel_name);"""
                 else:
@@ -220,7 +226,13 @@ class AuditDTDs:
                 if char_name is None:
                     char_name = re2.match(r"(.+)makes a transaction!", embed.title)
                 if char_name is None:
-                    char_name = re2.match(r"(.+)gained \d,*\d*xp!", embed.title)
+                    char_name = re2.match(r"(.+)gained [\d,]+xp", embed.title)
+                if char_name is None:
+                    char_name = re2.match(r"Logging [\d\.]+ Hours? RPXP for ([^!]+)", embed.title)
+                if char_name is None:
+                    char_name = re2.match(r"Weekly RPXP Cap reset for ([^!]+)", embed.title)
+                if char_name is None:
+                    char_name = re2.match(r"Character \(Lv\)\n([^\n\r]+)", embed.title)
                 if char_name is None:
                     logging.debug(f"Character name not found: {link}")
                     continue
@@ -228,20 +240,48 @@ class AuditDTDs:
                 xp_gained = None
                 old_xp = None
                 new_xp = None
+                old_rpxp = None
+                new_rpxp = None
+                rpxp_delta = None
+                old_rpxp_cache = None
+                new_rpxp_cache = None
+                rpxp_cache_delta = None
                 output_desc = "N/A"
 
                 match to_audit:
                     case "train":
-                        xp_gained = int(re2.search(r"XP Gained:?\*\*:? (\d+)", description)[1])
+                        xp_gained = int(re2.search(r"XP Gained:?\*\*:? ([\d,]+)", description)[1].replace(",", ""))
                         try:
                             output_desc = re2.search(r"Note:?\*\*:? ([^\n\r]+)", description)[1]
                         except TypeError:
                             pass
                     case "dxp":
-                        old_xp = int(re2.search(r"XP Change\n(\d+,*\d*)", description)[1].replace(",", ""))
-                        new_xp = int(re2.search(r"XP Change\n\d+,*\d* -> (\d+,*\d*)", description)[1].replace(",", ""))
+                        old_xp = int(re2.search(r"XP Change\n([\d,]+)", description)[1].replace(",", ""))
+                        new_xp = int(re2.search(r"XP Change\n(?:[\d,]+) -> ([\d,]+)", description)[1].replace(",", ""))
                         xp_gained = new_xp - old_xp
+                        try:
+                            old_rpxp = int(re2.search(r"RPXP Transferred\)\n[\d,]+\s\+\s([\d,]+)", description)[1].replace(",", ""))
+                        except TypeError:
+                            old_rpxp = 0
+                        new_rpxp = 0
+                        rpxp_delta = new_rpxp - old_rpxp
                         output_desc = re2.search(r"Source\n(.+)", description)[1]
+                    case "rpxp":
+                        old_rpxp = int(re2.search(r"RPXP\n([\d,]+)", description)[1].replace(",", ""))
+                        try:
+                            new_rpxp = int(re2.search(r"RPXP\n[\d,]+ -> ([\d,]+)", description)[1].replace(",", ""))
+                        except TypeError:
+                            new_rpxp = old_rpxp
+                        rpxp_delta = new_rpxp - old_rpxp
+
+                        old_rpxp_cache = int(re2.search(r"(?:Cap|reset`|\(Automated\))(\n[\d,]+)", description)[1].replace(",", ""))
+                        try:
+                            new_rpxp_cache = int(re2.search(r"(?:Cap|reset`|\(Automated\))\n[\d,]+ / [\d,]+ -> ([\d,]+)", description)[1].replace(",", ""))
+                        except TypeError:
+                            new_rpxp_cache = old_rpxp_cache
+                            old_rpxp_cache -= rpxp_delta
+                        rpxp_cache_delta = new_rpxp_cache - old_rpxp_cache
+
                     case "guild":
                         output_desc = re2.match(r"\w+", footer[7:])[0].replace("assasinate", "assassinate")
                     case "business":
@@ -280,6 +320,12 @@ class AuditDTDs:
                             "old_xp": old_xp,
                             "new_xp": new_xp,
                             "channel_name": channel_name,
+                            "old_rpxp": old_rpxp,
+                            "new_rpxp": new_rpxp,
+                            "rpxp_delta": rpxp_delta,
+                            "old_rpxp_cache": old_rpxp_cache,
+                            "new_rpxp_cache": new_rpxp_cache,
+                            "rpxp_cache_delta": rpxp_cache_delta,
                         },
                     )
                     await database.connection.commit()
@@ -317,6 +363,12 @@ class AuditDTDs:
                                   raw_appended.old_xp,
                                   raw_appended.new_xp,
                                   raw_appended.xp_gained,
+                                  raw_appended.old_rpxp,
+                                  raw_appended.new_rpxp,
+                                  raw_appended.rpxp_delta,
+                                  raw_appended.old_rpxp_cache,
+                                  raw_appended.new_rpxp_cache,
+                                  raw_appended.rpxp_cache_delta,
                                   raw_appended.injuries,
                                   raw_appended.description,
                                   raw_appended.message_link
@@ -337,6 +389,12 @@ class AuditDTDs:
                                   raw_appended.old_xp,
                                   raw_appended.new_xp,
                                   raw_appended.xp_gained,
+                                  raw_appended.old_rpxp,
+                                  raw_appended.new_rpxp,
+                                  raw_appended.rpxp_delta,
+                                  raw_appended.old_rpxp_cache,
+                                  raw_appended.new_rpxp_cache,
+                                  raw_appended.rpxp_cache_delta,
                                   raw_appended.injuries,
                                   raw_appended.description,
                                   raw_appended.message_link
@@ -357,9 +415,15 @@ class AuditDTDs:
                                   raw_appended.old_xp,
                                   raw_appended.new_xp,
                                   raw_appended.xp_gained,
+                                  raw_appended.old_rpxp,
+                                  raw_appended.new_rpxp,
+                                  raw_appended.rpxp_delta,
+                                  raw_appended.old_rpxp_cache,
+                                  raw_appended.new_rpxp_cache,
+                                  raw_appended.rpxp_cache_delta,
                                   raw_appended.injuries,
                                   raw_appended.description,
-                                  raw_appended.message_link 
+                                  raw_appended.message_link
                            from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case 3:
                 query = """SELECT raw_appended.message_id,
@@ -377,6 +441,12 @@ class AuditDTDs:
                                   raw_appended.old_xp,
                                   raw_appended.new_xp,
                                   raw_appended.xp_gained,
+                                  raw_appended.old_rpxp,
+                                  raw_appended.new_rpxp,
+                                  raw_appended.rpxp_delta,
+                                  raw_appended.old_rpxp_cache,
+                                  raw_appended.new_rpxp_cache,
+                                  raw_appended.rpxp_cache_delta,
                                   raw_appended.injuries,
                                   raw_appended.description,
                                   raw_appended.message_link 

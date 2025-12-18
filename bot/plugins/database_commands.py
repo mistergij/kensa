@@ -60,8 +60,14 @@ async def start_database(event: hikari.StartingEvent) -> None:
                 CREATE VIEW raw_appended AS SELECT raw_all.*,
                                                    COALESCE(train.xp_gained, dxp.xp_gained, 0) as xp_gained,
                                                    COALESCE(train.old_xp, dxp.old_xp, 0) as old_xp,
-                                                   COALESCE(train.new_xp, dxp.new_xp, 0) as new_xp 
-                                            from raw_all LEFT JOIN train USING (message_id) LEFT JOIN dxp USING (message_id);
+                                                   COALESCE(train.new_xp, dxp.new_xp, 0) as new_xp,
+                                                   COALESCE(rpxp.old_rpxp, dxp.old_rpxp, 0) as old_rpxp,
+                                                   COALESCE(rpxp.new_rpxp, dxp.new_rpxp, 0) as new_rpxp,
+                                                   COALESCE(rpxp.rpxp_delta, dxp.rpxp_delta, 0) as rpxp_delta,
+                                                   IFNULL(rpxp.old_rpxp_cache, 0) as old_rpxp_cache,
+                                                   IFNULL(rpxp.new_rpxp_cache, 0) as new_rpxp_cache,
+                                                   IFNULL(rpxp.rpxp_cache_delta, 0) as rpxp_cache_delta
+                                            from raw_all LEFT JOIN train USING (message_id) LEFT JOIN dxp USING (message_id) LEFT JOIN rpxp USING (message_id);
                 CREATE VIRTUAL TABLE IF NOT EXISTS filtered_all USING FTS5(message_id, dtd_type, user_id, char_name, content=raw_appended, content_rowid=message_id);
                 INSERT INTO filtered_all(filtered_all) VALUES('rebuild');
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ai_guild AFTER INSERT ON guild BEGIN 
@@ -88,6 +94,12 @@ async def start_database(event: hikari.StartingEvent) -> None:
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ai_dxp AFTER INSERT ON dxp BEGIN 
                     INSERT INTO filtered_all(rowid, dtd_type, user_id, char_name) VALUES (new.message_id, new.dtd_type, new.user_id, new.char_name);
                 END;
+                CREATE TRIGGER IF NOT EXISTS filtered_all_ai_transactions AFTER INSERT ON transactions BEGIN 
+                    INSERT INTO filtered_all(rowid, dtd_type, user_id, char_name) VALUES (new.message_id, new.dtd_type, new.user_id, new.char_name);
+                END;
+                CREATE TRIGGER IF NOT EXISTS filtered_all_ai_rpxp AFTER INSERT ON rpxp BEGIN 
+                    INSERT INTO filtered_all(rowid, dtd_type, user_id, char_name) VALUES (new.message_id, new.dtd_type, new.user_id, new.char_name);
+                END;
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ad_guild AFTER DELETE ON guild BEGIN 
                     INSERT INTO filtered_all(filtered_all, rowid, dtd_type, user_id, char_name) VALUES ('delete', old.message_id, old.dtd_type, old.user_id, old.char_name);
                 END;
@@ -110,6 +122,12 @@ async def start_database(event: hikari.StartingEvent) -> None:
                     INSERT INTO filtered_all(filtered_all, rowid, dtd_type, user_id, char_name) VALUES ('delete', old.message_id, old.dtd_type, old.user_id, old.char_name);
                 END;
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ad_dxp AFTER DELETE ON dxp BEGIN
+                INSERT INTO filtered_all(filtered_all, rowid, dtd_type, user_id, char_name) VALUES ('delete', old.message_id, old.dtd_type, old.user_id, old.char_name);
+                END;
+                CREATE TRIGGER IF NOT EXISTS filtered_all_ad_transactions AFTER DELETE ON transactions BEGIN
+                INSERT INTO filtered_all(filtered_all, rowid, dtd_type, user_id, char_name) VALUES ('delete', old.message_id, old.dtd_type, old.user_id, old.char_name);
+                END;
+                CREATE TRIGGER IF NOT EXISTS filtered_all_ad_rpxp AFTER DELETE ON rpxp BEGIN
                 INSERT INTO filtered_all(filtered_all, rowid, dtd_type, user_id, char_name) VALUES ('delete', old.message_id, old.dtd_type, old.user_id, old.char_name);
                 END;
             COMMIT;"""
@@ -152,7 +170,7 @@ class CreateDatabase:
                     user_name TEXT,
                     char_name TEXT,
                     xp_gained INTEGER,
-                    description: TEXT,
+                    description TEXT,
                     PRIMARY KEY(message_id DESC)
             );"""
             % f"'{self.table_name.replace("'", "''")}'"
