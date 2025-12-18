@@ -48,14 +48,14 @@ async def start_database(event: hikari.StartingEvent) -> None:
     await database.connection.executescript(
         """BEGIN;
                 DROP VIEW IF EXISTS raw_all;
-                CREATE VIEW raw_all AS SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM guild UNION 
-                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM business UNION
-                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM ptw UNION
-                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM hrw UNION
-                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM odd UNION 
-                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM lifestyle UNION
-                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM train UNION
-                                       SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM dxp;
+                CREATE VIEW raw_all AS SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM guild UNION 
+                                       SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM business UNION
+                                       SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM ptw UNION
+                                       SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM hrw UNION
+                                       SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM odd UNION 
+                                       SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM lifestyle UNION
+                                       SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM train UNION
+                                       SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM dxp;
                 DROP VIEW IF EXISTS raw_appended;
                 CREATE VIEW raw_appended AS SELECT raw_all.*,
                                                    COALESCE(train.xp_gained, dxp.xp_gained, 0) as xp_gained,
