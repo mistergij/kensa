@@ -57,7 +57,11 @@ async def start_database(event: hikari.StartingEvent) -> None:
                                        SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM train UNION
                                        SELECT message_id, message_timestamp, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM dxp;
                 DROP VIEW IF EXISTS raw_appended;
-                CREATE VIEW raw_appended AS SELECT raw_all.*, COALESCE(train.xp_gained, dxp.xp_gained, 0) as xp_gained from raw_all LEFT JOIN train USING (message_id) LEFT JOIN dxp USING (message_id);
+                CREATE VIEW raw_appended AS SELECT raw_all.*,
+                                                   COALESCE(train.xp_gained, dxp.xp_gained, 0) as xp_gained,
+                                                   COALESCE(train.old_xp, dxp.old_xp, 0) as old_xp,
+                                                   COALESCE(train.new_xp, dxp.new_xp, 0) as new_xp 
+                                            from raw_all LEFT JOIN train USING (message_id) LEFT JOIN dxp USING (message_id);
                 CREATE VIRTUAL TABLE IF NOT EXISTS filtered_all USING FTS5(message_id, dtd_type, user_id, char_name, content=raw_appended, content_rowid=message_id);
                 INSERT INTO filtered_all(filtered_all) VALUES('rebuild');
                 CREATE TRIGGER IF NOT EXISTS filtered_all_ai_guild AFTER INSERT ON guild BEGIN 

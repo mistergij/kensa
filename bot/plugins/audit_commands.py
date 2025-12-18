@@ -102,6 +102,8 @@ class AuditDTDs:
             "old_purse": pl.Float32,
             "new_purse": pl.Float32,
             "purse_delta": pl.Float32,
+            "old_xp": pl.Int32,
+            "new_xp": pl.Int32,
             "xp_gained": pl.Int32,
             "injuries": pl.String,
             "description": pl.String,
@@ -189,9 +191,9 @@ class AuditDTDs:
                     logging.debug(e, exc_info=True)
                     continue
                 if to_audit == "train":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:message_link,:description,:purse_delta);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:message_link,:description,:purse_delta,:old_xp,:new_xp);"""
                 elif to_audit == "dxp":
-                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description,:message_link,:purse_delta);"""
+                    query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:xp_gained,:description,:message_link,:purse_delta,:old_xp,:new_xp);"""
                 elif to_audit == "rpxp":
                     query = f"""INSERT OR REPLACE INTO {to_audit} VALUES (:message_id,:timestamp,:dtd_remaining,:old_purse,:new_purse,:lifestyle,:injuries,:dtd_type,:user_id,:user_name,:char_name,:rpxp_gained,:message_link,:purse_delta);"""
                 elif to_audit == "transactions":
@@ -218,6 +220,8 @@ class AuditDTDs:
                     continue
 
                 xp_gained = None
+                old_xp = None
+                new_xp = None
                 output_desc = "N/A"
                 link = cvt.to_url(message)
 
@@ -229,9 +233,9 @@ class AuditDTDs:
                         except TypeError:
                             pass
                     case "dxp":
-                        xp_old = re2.search(r"XP Change\n(\d+,*\d*)", description)[1].replace(",", "")
-                        xp_new = re2.search(r"XP Change\n\d+,*\d* -> (\d+,*\d*)", description)[1].replace(",", "")
-                        xp_gained = int(xp_new) - int(xp_old)
+                        old_xp = int(re2.search(r"XP Change\n(\d+,*\d*)", description)[1].replace(",", ""))
+                        new_xp = int(re2.search(r"XP Change\n\d+,*\d* -> (\d+,*\d*)", description)[1].replace(",", ""))
+                        xp_gained = new_xp - old_xp
                         output_desc = re2.search(r"Source\n(.+)", description)[1]
                     case "guild":
                         output_desc = re2.match(r"\w+", footer[7:])[0].replace("assasinate", "assassinate")
@@ -268,6 +272,8 @@ class AuditDTDs:
                             "description": output_desc,
                             "message_link": link,
                             "purse_delta": 0 if ((old_purse is None) or (new_purse is None)) else (float(new_purse[1]) - float(old_purse[1])),
+                            "old_xp": old_xp,
+                            "new_xp": new_xp,
                         },
                     )
                     await database.connection.commit()
@@ -301,6 +307,8 @@ class AuditDTDs:
                                   raw_appended.old_purse,
                                   raw_appended.new_purse,
                                   raw_appended.purse_delta,
+                                  raw_appended.old_xp,
+                                  raw_appended.new_xp,
                                   raw_appended.xp_gained,
                                   raw_appended.injuries,
                                   raw_appended.description,
@@ -318,6 +326,8 @@ class AuditDTDs:
                                   raw_appended.old_purse,
                                   raw_appended.new_purse,
                                   raw_appended.purse_delta,
+                                  raw_appended.old_xp,
+                                  raw_appended.new_xp,
                                   raw_appended.xp_gained,
                                   raw_appended.injuries,
                                   raw_appended.description,
@@ -333,6 +343,10 @@ class AuditDTDs:
                                   raw_appended.lifestyle,
                                   raw_appended.remaining_dtd,
                                   raw_appended.old_purse,
+                                  raw_appended.new_purse,
+                                  raw_appended.purse_delta,
+                                  raw_appended.old_xp,
+                                  raw_appended.new_xp,
                                   raw_appended.xp_gained,
                                   raw_appended.injuries,
                                   raw_appended.description,
@@ -350,10 +364,12 @@ class AuditDTDs:
                                   raw_appended.old_purse,
                                   raw_appended.new_purse,
                                   raw_appended.purse_delta,
+                                  raw_appended.old_xp,
+                                  raw_appended.new_xp,
                                   raw_appended.xp_gained,
                                   raw_appended.injuries,
                                   raw_appended.description,
-                                  raw_appended.message_link 
+                                  raw_appended.message_link  
                            from raw_appended INNER JOIN filtered_all ON raw_appended.message_id = filtered_all.rowid WHERE filtered_all MATCH :search_1 AND filtered_all MATCH :search_2 AND filtered_all MATCH :search_3 AND raw_appended.message_timestamp > :timestamp ORDER BY message_timestamp"""
             case _:
                 raise ArgumentError(filtered_options_list)
