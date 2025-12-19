@@ -41,10 +41,17 @@ def convert_date(raw_string: str) -> datetime:
     Returns:
       A time-aware datetime object representing the date.
     """
-    return datetime.strptime(
-        raw_string,
-        "%Y-%m-%d",
-    ).replace(tzinfo=ZoneInfo("America/New_York"))
+    try:
+        time = datetime.strptime(
+            raw_string,
+            "%Y-%m-%d",
+        ).replace(tzinfo=ZoneInfo("America/New_York"))
+    except ValueError:
+        time = datetime.strptime(
+            raw_string,
+            "%Y-%B-%d"
+        )
+    return time
 
 
 def convert_epoch(epoch: float) -> datetime:
