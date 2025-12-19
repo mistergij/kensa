@@ -51,24 +51,17 @@ DISCORD_URL = "https://discord.com/channels/"
 MAIN_DATABASE_PATH = os.path.join(os.getcwd(), "resources", "database.sqlite")
 GUILD_DATABASE_PATH = os.path.join(os.getcwd(), "resources", "guild.sqlite")
 EARLIEST_AUDIT_PATH = os.path.join(os.getcwd(), "resources", "earliest_audit.txt")
-GUILD_DTD_CHOICES = [
-    ("alchem", "alchem"),
-    ("arcana", "arcana"),
-    ("armam", "armam"),
-    ("assassinate", "assassinate"),
-    ("crime", "crime"),
-    ("cult", "cult"),
-    ("explore", "explore"),
-    ("farm", "farm"),
-    ("med", "med"),
-    ("merc", "merc"),
-    ("merchant", "merchant"),
-    ("patrol", "patrol"),
-    ("research", "research"),
-    ("scribe", "scribe"),
-    ("showtime", "showtime"),
-    ("works", "works"),
-    ("healer", "healer"),
+DTD_TYPE_CHOICES = [
+    ("business", "business"),
+    ("dxp", "dxp"),
+    ("guild", "guild"),
+    ("hrw", "hrw"),
+    ("lifestyle","lifestyle"),
+    ("odd", "odd"),
+    ("ptw", "ptw"),
+    ("rpxp", "rpxp"),
+    ("train", "train"),
+    ("transactions", "transactions"),
 ]
 
 MONTH_CHOICES = [

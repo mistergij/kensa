@@ -55,6 +55,8 @@ async def start_database(event: hikari.StartingEvent) -> None:
                                        SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM odd UNION 
                                        SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM lifestyle UNION
                                        SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM train UNION
+                                       SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM transactions UNION
+                                       SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM rpxp UNION
                                        SELECT message_id, message_timestamp, channel_name, dtd_type, user_id, user_name, char_name, lifestyle, remaining_dtd, old_purse, new_purse, purse_delta, injuries, description, message_link FROM dxp;
                 DROP VIEW IF EXISTS raw_appended;
                 CREATE VIEW raw_appended AS SELECT raw_all.*,

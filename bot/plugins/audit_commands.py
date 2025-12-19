@@ -29,7 +29,7 @@ from bot.constants import (
     complete_channel,
     complete_month,
     database,
-    GUILD_DTD_CHOICES,
+    DTD_TYPE_CHOICES,
     GUILD_ID,
     Plugin,
 )
@@ -126,8 +126,8 @@ class AuditDTDs:
     user_id = crescent.option(str, description="(Optional) The ID of the User to audit.", default="").convert(
         cvt.to_int
     )
-    dtd_type = crescent.option(
-        str, description="(Optional) The DTD type you wish to audit.", default="", choices=GUILD_DTD_CHOICES
+    type = crescent.option(
+        str, description="(Optional) The type of log you wish to audit.", default="", choices=DTD_TYPE_CHOICES
     )
 
     async def update_tables(
@@ -228,13 +228,13 @@ class AuditDTDs:
                 if char_name is None:
                     char_name = re2.match(r"(.+)gained [\d,]+xp", embed.title)
                 if char_name is None:
-                    char_name = re2.match(r"Logging [\d\.]+ Hours? RPXP for ([^!]+)", embed.title)
+                    char_name = re2.match(r"Logging [\d\.]+ Hours? RPXP for ([^\!]+)", embed.title)
                 if char_name is None:
                     char_name = re2.match(r"Weekly RPXP Cap reset for ([^!]+)", embed.title)
                 if char_name is None:
                     char_name = re2.match(r"Character \(Lv\)\n([^\n\r]+)", embed.title)
                 if char_name is None:
-                    logging.debug(f"Character name not found: {link}")
+                    logging.debug(f"Character name not found in {channel_name}: {link}")
                     continue
 
                 xp_gained = None
@@ -344,7 +344,7 @@ class AuditDTDs:
                 raise ParsingError(e, GUILD_ID, message.channel_id, message.id)
 
     async def filter_tables(self, aware_date: datetime) -> pl.DataFrame:
-        filtered_options_list = list(filter(None, map(str.strip, [self.dtd_type, str(self.user_id), self.char_name])))
+        filtered_options_list = list(filter(None, map(str.strip, [self.type, str(self.user_id), self.char_name])))
         num_options = len(filtered_options_list)
         match num_options:
             case 0:
