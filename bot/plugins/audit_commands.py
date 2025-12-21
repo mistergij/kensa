@@ -503,7 +503,7 @@ class AuditDTDs:
             )
 
             # Find messages sent after SQL Database was last updated
-            await self.update_tables(message_iterator)
+            await self.update_tables(message_iterator, channel_name, channel_id)
 
         await cursor.close()
 
