@@ -194,6 +194,22 @@ async def reset_latest_audit_info(ctx: crescent.Context) -> None:
 @plugin.include
 @database_commands.child
 @crescent.command(
+    name="set_latest_audit_info",
+    description="Sets latest audit information to a specific epoch"
+)
+class SetLatestAudit:
+    epoch = crescent.option(float, "The epoch to set the latest audit value to")
+
+    async def callback(self, ctx: crescent.Context) -> None:
+        if ctx.user.mention not in DEV_IDS:
+            raise InsufficientPrivilegesError("Insufficient Permissions!")
+        database.earliest_audit = self.epoch
+        await ctx.respond(f"Set earliest audit to {self.epoch}!")
+
+
+@plugin.include
+@database_commands.child
+@crescent.command(
     name="query_database",
     description="Sends an SQL query to the database for debugging purposes",
 )

@@ -93,6 +93,7 @@ class AuditDTDs:
         self.schema = {
             "message_id": pl.UInt64,
             "message_timestamp": pl.Float64,
+            "channel_name": pl.String,
             "dtd_type": pl.String,
             "user_id": pl.UInt64,
             "user_name": pl.String,
@@ -131,13 +132,12 @@ class AuditDTDs:
     )
 
     async def update_tables(
-        self, message_iterator: hikari.LazyIterator[hikari.Message], earliest_break: bool = False
+        self, message_iterator: hikari.LazyIterator[hikari.Message], channel_name: str, channel_id: int, earliest_break: bool = False
     ) -> None:
         message: hikari.Message
         async for message in message_iterator:
-            link = message.make_link(GUILD_ID)
-            channel = await message.fetch_channel()
-            channel_name = channel.name
+            message_id = message.id
+            link = cvt.create_discord_url(GUILD_ID, channel_id, message_id)
 
             try:
                 if (
@@ -256,8 +256,8 @@ class AuditDTDs:
                         except TypeError:
                             pass
                     case "dxp":
-                        old_xp = int(re2.search(r"XP Change\n([\d,]+)", description)[1].replace(",", ""))
-                        new_xp = int(re2.search(r"XP Change\n(?:[\d,]+) -> ([\d,]+)", description)[1].replace(",", ""))
+                        old_xp = int(re2.search(r"Change\n([\d,]+)", description)[1].replace(",", ""))
+                        new_xp = int(re2.search(r"Change\n(?:[\d,]+) -> ([\d,]+)", description)[1].replace(",", ""))
                         xp_gained = new_xp - old_xp
                         try:
                             old_rpxp = int(re2.search(r"RPXP Transferred\)\n[\d,]+\s\+\s([\d,]+)", description)[1].replace(",", ""))
@@ -332,7 +332,8 @@ class AuditDTDs:
                 except aiosqlite.IntegrityError:
                     logging.debug(f"Value already exists: {link}")
                     continue
-                except TypeError as e:
+                except Exception as e:
+                    logging.debug(e, exc_info=True)
                     raise ParsingError(e, GUILD_ID, message.channel_id, message.id)
 
             # Handles if message does not have an Embed or if Embed doesn't have a Footer
@@ -341,6 +342,7 @@ class AuditDTDs:
                 logging.debug(link)
                 pass
             except TypeError as e:
+                logging.debug(e, exc_info=True)
                 raise ParsingError(e, GUILD_ID, message.channel_id, message.id)
 
     async def filter_tables(self, aware_date: datetime) -> pl.DataFrame:
@@ -479,7 +481,7 @@ class AuditDTDs:
             )
 
             # Find messages not yet in database
-            await self.update_tables(message_iterator, True)
+            await self.update_tables(message_iterator, channel_name, channel_id,True)
             logging.debug(f"Fetched messages from channel: {channel_name}")
 
         # Update variables to reflect new entries in database

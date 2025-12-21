@@ -74,5 +74,8 @@ def convert_datetime_to_readable(time: datetime) -> str:
     return time.strftime("%B %d, %Y at %I:%M %p")
 
 
-def convert_readable_to_epoch(time: str) -> float:
+def convert_readable_to_epoch(time: str) -> datetime:
     return datetime.strptime(time, "%B %d, %Y at %I:%M %p").replace(tzinfo=ZoneInfo("America/New_York"))
+
+def create_discord_url(guild_id: int, channel_id: int, message_id: int):
+    return f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}"
