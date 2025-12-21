@@ -250,33 +250,33 @@ class AuditDTDs:
 
                 match to_audit:
                     case "train":
-                        xp_gained = int(re2.search(r"XP Gained:?\*\*:? ([\d,]+)", description)[1].replace(",", ""))
+                        xp_gained = int(re2.search(r"XP Gained:?\*\*:? ([\-\d,]+)", description)[1].replace(",", ""))
                         try:
                             output_desc = re2.search(r"Note:?\*\*:? ([^\n\r]+)", description)[1]
                         except TypeError:
                             pass
                     case "dxp":
-                        old_xp = int(re2.search(r"Change\n([\d,]+)", description)[1].replace(",", ""))
-                        new_xp = int(re2.search(r"Change\n(?:[\d,]+) -> ([\d,]+)", description)[1].replace(",", ""))
+                        old_xp = int(re2.search(r"Change\n([\-\d,]+)", description)[1].replace(",", ""))
+                        new_xp = int(re2.search(r"Change\n(?:[\-\d,]+) -> ([\-\d,]+)", description)[1].replace(",", ""))
                         xp_gained = new_xp - old_xp
                         try:
-                            old_rpxp = int(re2.search(r"RPXP Transferred\)\n[\d,]+\s\+\s([\d,]+)", description)[1].replace(",", ""))
+                            old_rpxp = int(re2.search(r"RPXP Transferred\)\n[\-\d,]+\s\+\s([\-\d,]+)", description)[1].replace(",", ""))
                         except TypeError:
                             old_rpxp = 0
                         new_rpxp = 0
                         rpxp_delta = new_rpxp - old_rpxp
                         output_desc = re2.search(r"Source\n(.+)", description)[1]
                     case "rpxp":
-                        old_rpxp = int(re2.search(r"RPXP\n([\d,]+)", description)[1].replace(",", ""))
+                        old_rpxp = int(re2.search(r"RPXP\n([\-\d,]+)", description)[1].replace(",", ""))
                         try:
-                            new_rpxp = int(re2.search(r"RPXP\n[\d,]+ -> ([\d,]+)", description)[1].replace(",", ""))
+                            new_rpxp = int(re2.search(r"RPXP\n[\-\d,]+ -> ([\-\d,]+)", description)[1].replace(",", ""))
                         except TypeError:
                             new_rpxp = old_rpxp
                         rpxp_delta = new_rpxp - old_rpxp
 
-                        old_rpxp_cache = int(re2.search(r"(?:Cap|reset`|\(Automated\))(\n[\d,]+)", description)[1].replace(",", ""))
+                        old_rpxp_cache = int(re2.search(r"(?:Cap|reset`|\(Automated\))(\n[\-\d,]+)", description)[1].replace(",", ""))
                         try:
-                            new_rpxp_cache = int(re2.search(r"(?:Cap|reset`|\(Automated\))\n[\d,]+ / [\d,]+ -> ([\d,]+)", description)[1].replace(",", ""))
+                            new_rpxp_cache = int(re2.search(r"(?:Cap|reset`|\(Automated\))\n[\-\d,]+ / [\-\d,]+ -> ([\-\d,]+)", description)[1].replace(",", ""))
                         except TypeError:
                             new_rpxp_cache = old_rpxp_cache
                             old_rpxp_cache -= rpxp_delta
