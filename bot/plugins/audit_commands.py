@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License along with Ken
 
 import io
 import logging
+import zipfile
 from datetime import datetime
 
 import aiosqlite
@@ -23,6 +24,7 @@ import crescent
 import hikari
 import polars as pl
 import re2
+import xlsxwriter
 
 from bot.constants import (
     CHANNEL_CHOICES,
@@ -250,14 +252,22 @@ class AuditDTDs:
 
                 match to_audit:
                     case "train":
-                        xp_gained = int(re2.search(r"XP Gained:?\*\*:? ([\-\d,]+)", description)[1].replace(",", ""))
+                        try:
+                            xp_gained = int(re2.search(r"XP Gained:?\*\*:? ([\-\d,]+)", description)[1].replace(",", ""))
+                        except TypeError:
+                            logging.debug(f"Train Improperly formatted: {link}")
+                            continue
                         try:
                             output_desc = re2.search(r"Note:?\*\*:? ([^\n\r]+)", description)[1]
                         except TypeError:
                             pass
                     case "dxp":
-                        old_xp = int(re2.search(r"Change\n([\-\d,]+)", description)[1].replace(",", ""))
-                        new_xp = int(re2.search(r"Change\n(?:[\-\d,]+) -> ([\-\d,]+)", description)[1].replace(",", ""))
+                        try:
+                            old_xp = int(re2.search(r"Change\n([\-\d,]+)", description)[1].replace(",", ""))
+                            new_xp = int(re2.search(r"Change\n(?:[\-\d,]+) -> ([\-\d,]+)", description)[1].replace(",", ""))
+                        except TypeError:
+                            logging.debug(f"XP Improperly formatted: {link}")
+                            continue
                         xp_gained = new_xp - old_xp
                         try:
                             old_rpxp = int(re2.search(r"RPXP Transferred\)\n[\-\d,]+\s\+\s([\-\d,]+)", description)[1].replace(",", ""))
@@ -511,21 +521,36 @@ class AuditDTDs:
 
         sql_df = await self.filter_tables(aware_date)
 
-        time_column = sql_df.select(
-            pl.from_epoch("message_timestamp", time_unit="s")
-            .dt.convert_time_zone("America/New_York")
-            .dt.strftime("%B %d, %Y at %I:%M:%S %p %Z")
-            .cast(pl.String)
-        ).to_series(0)
-        sql_df = sql_df.cast({"old_purse": pl.Decimal(scale=2), "new_purse": pl.Decimal(scale=2), "purse_delta": pl.Decimal(scale=2)})
-        sql_df.replace_column(1, time_column)
-        output_string = sql_df.write_csv()
-        output_file = io.StringIO(output_string)
+        # time_column = sql_df.select(
+        #     pl.from_epoch("message_timestamp", time_unit="s")
+        #     .dt.convert_time_zone("America/New_York")
+        #     .dt.strftime("%B %d, %Y at %I:%M:%S %p %Z")
+        #     .cast(pl.String)
+        # ).to_series(0)
+        sql_df = sql_df.with_columns([
+            pl.col("message_id").cast(pl.Utf8),
+            pl.from_epoch("message_timestamp", time_unit="s").dt.convert_time_zone("America/New_York").dt.strftime(
+                "%B %d, %Y at %I:%M:%S %p %Z").cast(pl.Utf8),
+            pl.col("user_id").cast(pl.Utf8),
+            pl.col("old_purse").cast(pl.Decimal(16, 2)),
+            pl.col("new_purse").cast(pl.Decimal(16, 2)),
+            pl.col("purse_delta").cast(pl.Decimal(16, 2)),
+        ])
+        # sql_df.replace_column(1, time_column)
+        output_buffer = io.BytesIO()
+        with xlsxwriter.Workbook(output_buffer, {'strings_to_urls': False}) as workbook:
+
+            sql_df.write_excel(
+                workbook=workbook,
+                worksheet="Sheet1",
+                position=(0,0),
+                float_precision=2,
+            )
+
         await ctx.respond(
             attachment=hikari.Bytes(
-                output_file,
-                "audit.csv",
-                "text/csv",
+                output_buffer.getvalue(),
+                "audit.xlsx",
             )
         )
         logging.info(f"/audit full finished executing.")
@@ -537,7 +562,18 @@ async def catch_argument_error(exc: ArgumentError, ctx: crescent.Context) -> Non
     await ctx.respond(exc)
 
 
-@plugin.include
-@crescent.catch_command(ParsingError)
-async def catch_parsing_error(exc: ParsingError, ctx: crescent.Context) -> None:
-    await ctx.respond(f"Unexpected error! Please provide the following information to <@657638997941813258>:\n{exc}")
+# @plugin.include
+# @crescent.catch_command(ParsingError)
+# async def catch_parsing_error(exc: ParsingError, ctx: crescent.Context) -> None:
+#     user = ctx.user
+#     dm_channel = await user.fetch_dm_channel()
+#     await dm_channel.send(f"Please provide the following information to <@657638997941813258> for debugging:\n{exc}\n```py\n{exc.__traceback__}\n```")
+#     await ctx.respond(f"Unexpected error! Please check your DMs for more information.")
+#
+# @plugin.include
+# @crescent.catch_command(Exception)
+# async def global_error_handler(exc: Exception, ctx: crescent.Context):
+#     user = ctx.user
+#     dm_channel = await user.fetch_dm_channel()
+#     await dm_channel.send(f"Please provide the following information to <@657638997941813258> for debugging:\n{exc}\n```py\n{exc.__traceback__}\n```")
+#     await ctx.respond(f"Unexpected error! Please check your DMs for more information.")

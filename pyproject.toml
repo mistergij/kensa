@@ -13,6 +13,7 @@ dependencies = [
     "polars",
     "sqlalchemy[asyncio]",
 	"pyarrow",
+    "xlsxwriter",
 ]
 
 [project.scripts]
