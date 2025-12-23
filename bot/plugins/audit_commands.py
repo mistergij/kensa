@@ -16,7 +16,6 @@ You should have received a copy of the GNU General Public License along with Ken
 
 import io
 import logging
-import zipfile
 from datetime import datetime
 
 import aiosqlite
@@ -91,34 +90,6 @@ class GetMessage:
     description="Intelligently fetch and store data from DTDs",
 )
 class AuditDTDs:
-    def __init__(self):
-        self.schema = {
-            "message_id": pl.UInt64,
-            "message_timestamp": pl.Float64,
-            "channel_name": pl.String,
-            "dtd_type": pl.String,
-            "user_id": pl.UInt64,
-            "user_name": pl.String,
-            "char_name": pl.String,
-            "lifestyle": pl.String,
-            "remaining_dtd": pl.String,
-            "old_purse": pl.Float32,
-            "new_purse": pl.Float32,
-            "purse_delta": pl.Float32,
-            "old_xp": pl.Int32,
-            "new_xp": pl.Int32,
-            "xp_gained": pl.Int32,
-            "old_rpxp": pl.Int32,
-            "new_rpxp": pl.Int32,
-            "rpxp_delta": pl.Int32,
-            "old_rpxp_cache": pl.Int32,
-            "new_rpxp_cache": pl.Int32,
-            "rpxp_cache_delta": pl.Int32,
-            "injuries": pl.String,
-            "description": pl.String,
-            "message_link": pl.String,
-        }
-
     year = crescent.option(
         str,
         description="The year after which to audit.",
@@ -134,7 +105,11 @@ class AuditDTDs:
     )
 
     async def update_tables(
-        self, message_iterator: hikari.LazyIterator[hikari.Message], channel_name: str, channel_id: int, earliest_break: bool = False
+        self,
+        message_iterator: hikari.LazyIterator[hikari.Message],
+        channel_name: str,
+        channel_id: int,
+        earliest_break: bool = False,
     ) -> None:
         message: hikari.Message
         async for message in message_iterator:
@@ -253,7 +228,9 @@ class AuditDTDs:
                 match to_audit:
                     case "train":
                         try:
-                            xp_gained = int(re2.search(r"XP Gained:?\*\*:? ([\-\d,]+)", description)[1].replace(",", ""))
+                            xp_gained = int(
+                                re2.search(r"XP Gained:?\*\*:? ([\-\d,]+)", description)[1].replace(",", "")
+                            )
                         except TypeError:
                             logging.debug(f"Train Improperly formatted: {link}")
                             continue
@@ -264,13 +241,19 @@ class AuditDTDs:
                     case "dxp":
                         try:
                             old_xp = int(re2.search(r"Change\n([\-\d,]+)", description)[1].replace(",", ""))
-                            new_xp = int(re2.search(r"Change\n(?:[\-\d,]+) -> ([\-\d,]+)", description)[1].replace(",", ""))
+                            new_xp = int(
+                                re2.search(r"Change\n(?:[\-\d,]+) -> ([\-\d,]+)", description)[1].replace(",", "")
+                            )
                         except TypeError:
                             logging.debug(f"XP Improperly formatted: {link}")
                             continue
                         xp_gained = new_xp - old_xp
                         try:
-                            old_rpxp = int(re2.search(r"RPXP Transferred\)\n[\-\d,]+\s\+\s([\-\d,]+)", description)[1].replace(",", ""))
+                            old_rpxp = int(
+                                re2.search(r"RPXP Transferred\)\n[\-\d,]+\s\+\s([\-\d,]+)", description)[1].replace(
+                                    ",", ""
+                                )
+                            )
                         except TypeError:
                             old_rpxp = 0
                         new_rpxp = 0
@@ -284,9 +267,15 @@ class AuditDTDs:
                             new_rpxp = old_rpxp
                         rpxp_delta = new_rpxp - old_rpxp
 
-                        old_rpxp_cache = int(re2.search(r"(?:Cap|reset`|\(Automated\))(\n[\-\d,]+)", description)[1].replace(",", ""))
+                        old_rpxp_cache = int(
+                            re2.search(r"(?:Cap|reset`|\(Automated\))(\n[\-\d,]+)", description)[1].replace(",", "")
+                        )
                         try:
-                            new_rpxp_cache = int(re2.search(r"(?:Cap|reset`|\(Automated\))\n[\-\d,]+ / [\-\d,]+ -> ([\-\d,]+)", description)[1].replace(",", ""))
+                            new_rpxp_cache = int(
+                                re2.search(
+                                    r"(?:Cap|reset`|\(Automated\))\n[\-\d,]+ / [\-\d,]+ -> ([\-\d,]+)", description
+                                )[1].replace(",", "")
+                            )
                         except TypeError:
                             new_rpxp_cache = old_rpxp_cache
                             old_rpxp_cache -= rpxp_delta
@@ -326,7 +315,9 @@ class AuditDTDs:
                             "xp_gained": xp_gained,
                             "description": output_desc,
                             "message_link": link,
-                            "purse_delta": 0 if ((old_purse is None) or (new_purse is None)) else (float(new_purse[1]) - float(old_purse[1])),
+                            "purse_delta": 0
+                            if ((old_purse is None) or (new_purse is None))
+                            else (float(new_purse[1]) - float(old_purse[1])),
                             "old_xp": old_xp,
                             "new_xp": new_xp,
                             "channel_name": channel_name,
@@ -477,7 +468,7 @@ class AuditDTDs:
                     "search_3": f'"{filtered_options_list[2]}"' if num_options > 2 else None,
                 }
             },
-            schema_overrides=self.schema,
+            schema_overrides=database.schema,
         )
 
     async def callback(self, ctx: crescent.Context) -> None:
@@ -491,7 +482,7 @@ class AuditDTDs:
             )
 
             # Find messages not yet in database
-            await self.update_tables(message_iterator, channel_name, channel_id,True)
+            await self.update_tables(message_iterator, channel_name, channel_id, True)
             logging.debug(f"Fetched messages from channel: {channel_name}")
 
         # Update variables to reflect new entries in database
@@ -520,32 +511,8 @@ class AuditDTDs:
         # Fetch all messages stored in database
 
         sql_df = await self.filter_tables(aware_date)
-
-        # time_column = sql_df.select(
-        #     pl.from_epoch("message_timestamp", time_unit="s")
-        #     .dt.convert_time_zone("America/New_York")
-        #     .dt.strftime("%B %d, %Y at %I:%M:%S %p %Z")
-        #     .cast(pl.String)
-        # ).to_series(0)
-        sql_df = sql_df.with_columns([
-            pl.col("message_id").cast(pl.Utf8),
-            pl.from_epoch("message_timestamp", time_unit="s").dt.convert_time_zone("America/New_York").dt.strftime(
-                "%B %d, %Y at %I:%M:%S %p %Z").cast(pl.Utf8),
-            pl.col("user_id").cast(pl.Utf8),
-            pl.col("old_purse").cast(pl.Decimal(16, 2)),
-            pl.col("new_purse").cast(pl.Decimal(16, 2)),
-            pl.col("purse_delta").cast(pl.Decimal(16, 2)),
-        ])
-        # sql_df.replace_column(1, time_column)
-        output_buffer = io.BytesIO()
-        with xlsxwriter.Workbook(output_buffer, {'strings_to_urls': False}) as workbook:
-
-            sql_df.write_excel(
-                workbook=workbook,
-                worksheet="Sheet1",
-                position=(0,0),
-                float_precision=2,
-            )
+        sql_df = cvt.convert_database_for_output(sql_df)
+        output_buffer = cvt.write_dataframe_to_excel(sql_df)
 
         await ctx.respond(
             attachment=hikari.Bytes(

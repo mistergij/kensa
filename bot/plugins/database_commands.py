@@ -18,9 +18,11 @@ import logging
 
 import aiosqlite
 import crescent
-from sqlalchemy import create_engine
 import hikari
+import polars as pl
+from sqlalchemy import create_engine
 
+import bot.converters as cvt
 from bot.constants import (
     database,
     DEV_IDS,
@@ -193,10 +195,7 @@ async def reset_latest_audit_info(ctx: crescent.Context) -> None:
 
 @plugin.include
 @database_commands.child
-@crescent.command(
-    name="set_latest_audit_info",
-    description="Sets latest audit information to a specific epoch"
-)
+@crescent.command(name="set_latest_audit_info", description="Sets latest audit information to a specific epoch")
 class SetLatestAudit:
     epoch = crescent.option(float, "The epoch to set the latest audit value to")
 
@@ -217,12 +216,23 @@ class QueryDatabase:
     query = crescent.option(str, "The query to pass to the table")
 
     async def callback(self, ctx: crescent.Context) -> None:
+        await ctx.defer(False)
         if ctx.user.mention not in DEV_IDS:
             raise InsufficientPrivilegesError("Insufficient Permissions!")
-        async with aiosqlite.connect(MAIN_DATABASE_PATH) as c:
-            async with c.execute(self.query) as cursor:
-                result = await cursor.fetchall()
-        await ctx.respond(result)
+        result = pl.read_database(
+            self.query,
+            database.engine,
+            schema_overrides=database.schema,
+        )
+        result = cvt.convert_database_for_output(result)
+        output_buffer = cvt.write_dataframe_to_excel(result)
+
+        await ctx.respond(
+            attachment=hikari.Bytes(
+                output_buffer.getvalue(),
+                "query.xlsx",
+            )
+        )
 
 
 @plugin.include

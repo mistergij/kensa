@@ -58,8 +58,9 @@
                 name = "kensa-dev";
                 motd = "";
 
-                packages = [
+                packages = with pkgs; [
                   env
+                  ruff
                 ];
               };
               env = [

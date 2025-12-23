@@ -14,10 +14,11 @@ You should have received a copy of the GNU General Public License along with Ken
 <https://www.gnu.org/licenses/>.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import io
 
 import aiosqlite
+import polars as pl
 from sqlalchemy import Engine
 
 
@@ -29,3 +30,31 @@ class Database:
     earliest_audit: float = None
     engine: Engine = None
     file: io.TextIOBase = None
+    schema: dict[str, pl.Any] = field(
+        default_factory=lambda: {
+            "message_id": pl.UInt64,
+            "message_timestamp": pl.Float64,
+            "channel_name": pl.String,
+            "dtd_type": pl.String,
+            "user_id": pl.UInt64,
+            "user_name": pl.String,
+            "char_name": pl.String,
+            "lifestyle": pl.String,
+            "remaining_dtd": pl.String,
+            "old_purse": pl.Float32,
+            "new_purse": pl.Float32,
+            "purse_delta": pl.Float32,
+            "old_xp": pl.Int32,
+            "new_xp": pl.Int32,
+            "xp_gained": pl.Int32,
+            "old_rpxp": pl.Int32,
+            "new_rpxp": pl.Int32,
+            "rpxp_delta": pl.Int32,
+            "old_rpxp_cache": pl.Int32,
+            "new_rpxp_cache": pl.Int32,
+            "rpxp_cache_delta": pl.Int32,
+            "injuries": pl.String,
+            "description": pl.String,
+            "message_link": pl.String,
+        }
+    )

@@ -14,12 +14,12 @@ You should have received a copy of the GNU General Public License along with Ken
 <https://www.gnu.org/licenses/>.
 """
 
+import io
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-import hikari
-
-from bot.constants import DISCORD_URL, GUILD_ID
+import polars as pl
+import xlsxwriter
 
 
 def to_int(value: str) -> str | int:
@@ -47,10 +47,7 @@ def convert_date(raw_string: str) -> datetime:
             "%Y-%m-%d",
         ).replace(tzinfo=ZoneInfo("America/New_York"))
     except ValueError:
-        time = datetime.strptime(
-            raw_string,
-            "%Y-%B-%d"
-        )
+        time = datetime.strptime(raw_string, "%Y-%B-%d")
     return time
 
 
@@ -77,5 +74,35 @@ def convert_datetime_to_readable(time: datetime) -> str:
 def convert_readable_to_epoch(time: str) -> datetime:
     return datetime.strptime(time, "%B %d, %Y at %I:%M %p").replace(tzinfo=ZoneInfo("America/New_York"))
 
+
 def create_discord_url(guild_id: int, channel_id: int, message_id: int):
     return f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}"
+
+
+def convert_database_for_output(dataframe: pl.DataFrame) -> pl.DataFrame:
+    return dataframe.with_columns(
+        [
+            pl.col("message_id").cast(pl.Utf8),
+            pl.from_epoch("message_timestamp", time_unit="s")
+            .dt.convert_time_zone("America/New_York")
+            .dt.strftime("%B %d, %Y at %I:%M:%S %p %Z")
+            .cast(pl.Utf8),
+            pl.col("user_id").cast(pl.Utf8),
+            pl.col("old_purse").cast(pl.Decimal(16, 2)),
+            pl.col("new_purse").cast(pl.Decimal(16, 2)),
+            pl.col("purse_delta").cast(pl.Decimal(16, 2)),
+        ]
+    )
+
+def write_dataframe_to_excel(dataframe: pl.DataFrame) -> io.BytesIO:
+    output_buffer = io.BytesIO()
+
+    with xlsxwriter.Workbook(output_buffer, {"strings_to_urls": False}) as workbook:
+        dataframe.write_excel(
+            workbook=workbook,
+            worksheet="Sheet1",
+            position=(0, 0),
+            float_precision=2,
+        )
+
+    return output_buffer

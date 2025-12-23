@@ -56,7 +56,7 @@ DTD_TYPE_CHOICES = [
     ("dxp", "dxp"),
     ("guild", "guild"),
     ("hrw", "hrw"),
-    ("lifestyle","lifestyle"),
+    ("lifestyle", "lifestyle"),
     ("odd", "odd"),
     ("ptw", "ptw"),
     ("rpxp", "rpxp"),
